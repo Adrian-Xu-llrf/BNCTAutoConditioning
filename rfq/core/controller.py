@@ -52,6 +52,7 @@ class RFQController:
         self.target_power = None
         self.init_drive = None
         self.pulse_start = None
+        self.original_pulse_start = None  # 保存原始初始脉宽，展脉宽时不修改
         self.pulse_end = None
         self.pulse_step = None
 
@@ -183,6 +184,7 @@ class RFQController:
         self.power_controller.reset_iteration_count()
         self.fault_handler.reset_fault_count()
         self.target_index = 0
+        self.original_pulse_start = None  # 重置原始脉宽，下次初始化时重新读取
 
         # 重新初始化监听器
         self.fault_handler = FaultHandler(self.config)
@@ -247,6 +249,11 @@ class RFQController:
         if None in [self.pulse_start, self.pulse_end]:
             logger.warning("无法读取脉冲起止参数PV，使用默认值")
             self.pulse_start, self.pulse_end = 1.0, 500.0
+
+        # 保存原始初始脉宽（仅首次加载时保存，后续不覆盖）
+        if self.original_pulse_start is None:
+            self.original_pulse_start = self.pulse_start
+            logger.info(f"保存原始初始脉宽: {self.original_pulse_start} ms")
 
         logger.info(f"脉冲参数: {self.pulse_start}-{self.pulse_end} ms, 步长={self.pulse_step} ms (固定)")
 
@@ -567,15 +574,6 @@ class RFQController:
             # 脉宽已达目标
             logger.debug("脉宽已达目标")
 
-            # 可选：将起始脉宽更新为终止脉宽，避免后续重启回退
-            try:
-                if self.config.loop.get('persist_start_pulse', True):
-                    self._put_pv('control.pulse_start', float(self.pulse_end))
-                    self.pulse_start = float(self.pulse_end)
-                    logger.info(f"同步起始脉宽为目标值: {self.pulse_end}ms")
-            except Exception as e:
-                logger.warning(f"更新起始脉宽到目标值失败: {e}")
-
             # 多目标模式：还有下一个目标则切换，否则完成
             if self.power_targets and self.target_index < len(self.power_targets) - 1:
                 self.target_index += 1
@@ -587,6 +585,14 @@ class RFQController:
                 )
                 self.target_power = next_target
                 self.power_controller.reset_iteration_count()
+
+                # 恢复初始脉宽，让下一个功率目标从原始脉宽重新开始展脉宽
+                # （AutoC_PulseStart PV 全程不被修改，此处只重置实际脉冲时间）
+                self.pulse_start = self.original_pulse_start
+                pulse_time_s = float(self.pulse_start) / 1000.0
+                self._put_pv('rf.pulse_time', pulse_time_s)
+                logger.info(f"恢复初始脉宽: {self.pulse_start}ms，准备下一功率目标展脉宽")
+
                 self.set_state(RFQState.ADJUSTING_POWER)
             else:
                 logger.debug("所有功率目标已完成，老练完成")
@@ -594,17 +600,6 @@ class RFQController:
         else:
             # 脉宽增加后，重置迭代计数并返回功率调节状态
             logger.debug("脉宽已增加，重置迭代计数并返回功率调节状态")
-
-            # 将当前脉宽写回起始PV用于后续重启时继续从当前值开始
-            try:
-                if self.config.loop.get('persist_start_pulse', True):
-                    current_ms_after = float(self._get_pv('rf.pulse_time')) * 1000.0
-                    self._put_pv('control.pulse_start', current_ms_after)
-                    self.pulse_start = current_ms_after
-                    logger.info(f"同步起始脉宽: {current_ms_after:.1f}ms")
-            except Exception as e:
-                logger.warning(f"同步起始脉宽失败: {e}")
-
             self.power_controller.reset_iteration_count()
             self.set_state(RFQState.ADJUSTING_POWER)
 
