@@ -200,6 +200,7 @@ class RFQController:
             bool: 加载是否成功
         """
         logger.info("从PV加载参数...")
+        self.config.reload()
 
         # 多目标模式：将当前目标写入 PV，再由下方统一读取
         cfg_targets = self.config.loop.get('power_targets') or []

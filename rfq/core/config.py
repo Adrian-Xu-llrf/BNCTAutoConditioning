@@ -29,6 +29,11 @@ class Config:
         with open(config_file, 'r', encoding='utf-8') as f:
             self._cfg = yaml.safe_load(f)
 
+    def reload(self):
+        """重新从文件加载配置（用于运行中热更新）"""
+        with open(self.config_file, 'r', encoding='utf-8') as f:
+            self._cfg = yaml.safe_load(f)
+
     def get(self, *keys, default=None):
         """
         获取配置值
