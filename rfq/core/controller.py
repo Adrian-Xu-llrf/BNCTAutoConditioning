@@ -66,14 +66,15 @@ class RFQController:
         self.retry_interval = float(self.config.loop.get('rf_retry_interval', 5.0))
         self.rf_startup_retry_count = 0
 
-        # wait_time 参数（初始化时读取一次，PV不存在时使用默认值60s）
+        # wait_time 参数（初始化时读取一次，PV不存在时使用config.yaml中的默认值）
         wait_time_pv = self.config.get_pv('rf.wait_time')
         wait_time_val = self.pv_manager.get(wait_time_pv)
+        _default_wait = float(self.config.get('loop', 'wait_time_default', default=10.0))
         try:
-            self.wait_time = float(wait_time_val) if wait_time_val is not None else 60.0
+            self.wait_time = float(wait_time_val) if wait_time_val is not None else _default_wait
         except (ValueError, TypeError):
-            logger.warning(f"wait_time PV读取失败，使用默认值 60.0s")
-            self.wait_time = 60.0
+            logger.warning(f"wait_time PV读取失败，使用默认值 {_default_wait}s")
+            self.wait_time = _default_wait
 
         # 状态集合常量，避免重复构造，提高可读性
         self.active_states = frozenset({
@@ -610,6 +611,10 @@ class RFQController:
 
     def _handle_paused(self):
         """处理PAUSED状态 - 已暂停，等待恢复"""
+        # 检查reset信号
+        if self._check_reset_signal():
+            return
+
         start_signal = self._get_pv('control.start')
         logger.debug(f"PAUSED状态检查: start={start_signal}, saved_state={self.state_before_pause}")
 
