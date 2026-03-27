@@ -55,6 +55,8 @@ class RFQController:
         self.original_pulse_start = None  # 保存原始初始脉宽，展脉宽时不修改
         self.pulse_end = None
         self.pulse_step = None
+        self._wait_before_power = False  # 展脉宽后进入调功率时需要等待标志
+        self._need_reset_pulse = False   # 等待结束后需要恢复初始脉宽的标志
 
         # 多目标功率列表（来自 config.yaml power_targets）
         # 为空时退回单目标模式（读 AutoC_TargetPower PV）
@@ -195,6 +197,8 @@ class RFQController:
         self.fault_handler.reset_fault_count()
         self.target_index = 0
         self.original_pulse_start = None  # 重置原始脉宽，下次初始化时重新读取
+        self._wait_before_power = False
+        self._need_reset_pulse = False
 
         # 重新初始化监听器
         self.fault_handler = FaultHandler(self.config)
@@ -252,10 +256,9 @@ class RFQController:
         self.pulse_start = self._get_pv('control.pulse_start')
         self.pulse_end = self._get_pv('control.pulse_end')
 
-        # 从PV读取脉宽步长，读取失败则使用默认值0.5
-        pulse_step_val = self._get_pv('control.pulse_step')
-        self.pulse_step = float(pulse_step_val) if pulse_step_val is not None else 0.5
-        logger.debug(f"脉冲参数: start={self.pulse_start}, end={self.pulse_end}, step={self.pulse_step}")
+        # TODO: 临时从config.yaml读取脉宽步长，后续改回从PV读取
+        self.pulse_step = float(self.config.loop.get('pulse_step', 0.5))
+        logger.debug(f"脉冲参数: start={self.pulse_start}, end={self.pulse_end}, step={self.pulse_step}(from config)")
 
         if None in [self.pulse_start, self.pulse_end]:
             logger.warning("无法读取脉冲起止参数PV，使用默认值")
@@ -267,6 +270,20 @@ class RFQController:
             logger.info(f"保存原始初始脉宽: {self.original_pulse_start} ms")
 
         logger.info(f"脉冲参数: {self.pulse_start}-{self.pulse_end} ms, 步长={self.pulse_step} ms")
+
+        # 读取 wait_time（PV不可用时从config.yaml取默认值）
+        wait_time_val = self._get_pv('rf.wait_time')
+        _default_wait = float(self.config.get('loop', 'wait_time_default', default=10.0))
+        try:
+            self.wait_time = float(wait_time_val) if wait_time_val is not None else _default_wait
+        except (ValueError, TypeError):
+            logger.warning(f"wait_time PV读取失败，使用默认值 {_default_wait}s")
+            self.wait_time = _default_wait
+        logger.info(f"wait_time: {self.wait_time} s")
+
+        # 读取展脉宽后等待时间
+        self.wait_after_expand = float(self.config.loop.get('wait_after_expand', 30.0))
+        logger.info(f"wait_after_expand: {self.wait_after_expand} s")
 
         return True
 
@@ -471,6 +488,27 @@ class RFQController:
             self.set_state(new_state)
             return
 
+        # 展脉宽后加功率前的非阻塞等待
+        # 中间步骤用wait_time，脉宽达到终点后用wait_after_expand
+        if self._wait_before_power:
+            elapsed = time.time() - self.state_enter_time
+            wait_duration = self.wait_after_expand if self._need_reset_pulse else self.wait_time
+            remaining = wait_duration - elapsed
+            if remaining > 0:
+                logger.debug(f"加功率前等待中: {remaining:.1f}s remaining...")
+                self._sleep_loop()
+                return
+            else:
+                logger.info("等待完成，开始调功率")
+                self._wait_before_power = False
+                # 等待结束后恢复初始脉宽（而非展脉宽后立即恢复）
+                if self._need_reset_pulse:
+                    self.pulse_start = self.original_pulse_start
+                    pulse_time_s = float(self.pulse_start) / 1000.0
+                    self._put_pv('rf.pulse_time', pulse_time_s)
+                    logger.info(f"恢复初始脉宽: {self.pulse_start}ms，准备下一功率目标展脉宽")
+                    self._need_reset_pulse = False
+
         # 检查真空
         is_ok, vacuum_value, vacuum_pv = self.vacuum_checker.is_vacuum_ok()
         logger.debug(f"真空检查: ok={is_ok}, value={vacuum_value:.2e} Pa, pv={vacuum_pv}")
@@ -590,21 +628,20 @@ class RFQController:
                 self.target_power = next_target
                 self.power_controller.reset_iteration_count()
 
-                # 恢复初始脉宽，让下一个功率目标从原始脉宽重新开始展脉宽
-                # （AutoC_PulseStart PV 全程不被修改，此处只重置实际脉冲时间）
-                self.pulse_start = self.original_pulse_start
-                pulse_time_s = float(self.pulse_start) / 1000.0
-                self._put_pv('rf.pulse_time', pulse_time_s)
-                logger.info(f"恢复初始脉宽: {self.pulse_start}ms，准备下一功率目标展脉宽")
+                # 先等待，等待结束后再恢复初始脉宽（在_handle_adjusting_power中执行）
+                self._need_reset_pulse = True
+                logger.info("脉宽已达目标，等待后再恢复初始脉宽，准备下一功率目标展脉宽")
 
+                self._wait_before_power = True
                 self.set_state(RFQState.ADJUSTING_POWER)
             else:
                 logger.debug("所有功率目标已完成，老练完成")
                 self.set_state(RFQState.COMPLETED)
         else:
-            # 脉宽增加后，重置迭代计数并返回功率调节状态
-            logger.debug("脉宽已增加，重置迭代计数并返回功率调节状态")
+            # 脉宽增加后，进入调功率前等待
+            logger.debug("脉宽已增加，切换到调功率状态（等待后开始调功率）")
             self.power_controller.reset_iteration_count()
+            self._wait_before_power = True
             self.set_state(RFQState.ADJUSTING_POWER)
 
         self._sleep_loop()

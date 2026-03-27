@@ -18,8 +18,10 @@ loop:
   # 递增功率目标列表 (kW)
   # 每个目标完成一轮"调功率→展脉宽"后自动切换到下一个
   # 留空或不配置则退回读取 AutoC_TargetPower PV（单目标模式）
-  power_targets: []
-  wait_time_default: 10.0    # wait_time PV读取失败时的默认等待时间 (秒)
+  power_targets: [10,20,30]
+  wait_time_default: 1.0    # wait_time PV读取失败时的默认等待时间 (秒)，每次展脉宽等待时间
+  wait_after_expand: 10.0    # 每次展脉宽结束后、开始调功率前的等待时间 (秒)
+  pulse_step: 0.5           # 脉宽步长 (ms)，临时从config读取，后续改回PV
   persist_start_pulse: false  # 展脉宽后是否将起始脉宽持久化到PV
 
   # 展脉宽模式配置

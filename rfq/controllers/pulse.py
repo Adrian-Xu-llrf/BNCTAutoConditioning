@@ -51,7 +51,7 @@ class PulseController:
         current_ms = float(current_pulse) * 1000.0
 
         if current_ms >= pulse_end:
-            msg = f"脉宽已达目标: {current_ms:.0f}ms"
+            msg = f"脉宽已达目标: {current_ms:.2f}ms"
             logger.info(msg)
             return True, msg
 
@@ -90,7 +90,7 @@ class PulseController:
         # 设置新的脉宽值
         new_s = float(new_ms) / 1000.0
         self.pv_manager.put(self.config.get_pv('rf.pulse_time'), new_s)
-        msg = f"展脉宽: {current_ms:.0f}→{new_ms:.0f}ms"
+        msg = f"展脉宽: {current_ms:.2f}→{new_ms:.2f}ms"
         logger.info(msg)
         time.sleep(2)
 

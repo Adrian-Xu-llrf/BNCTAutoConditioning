@@ -68,35 +68,34 @@ class FaultHandler:
         """Arc故障回调（value=0为故障）"""
         logger.debug(f"Arc PV变化: {pvname}={value}")
         if value == 0:
-            self._handle_fault('Arc', need_vac_reset=False)
+            threading.Thread(target=self._handle_fault, args=('Arc',), daemon=True).start()
 
     def _on_vac_interlock_change(self, pvname=None, value=None, **kwargs):
-        """VacInterlock故障回调（value=0为故障，需先触发VacReset）"""
+        """VacInterlock故障回调（value=0为故障）"""
         logger.debug(f"VacInterlock PV变化: {pvname}={value}")
         if value == 0:
-            self._handle_fault('VacInterlock', need_vac_reset=True)
+            threading.Thread(target=self._handle_fault, args=('VacInterlock',), daemon=True).start()
 
     def _on_interlock2_change(self, pvname=None, value=None, **kwargs):
         """InterlockStatus2故障回调（value=0为故障）"""
         logger.debug(f"Interlock2 PV变化: {pvname}={value}")
         if value == 0:
-            self._handle_fault('Interlock2', need_vac_reset=False)
+            threading.Thread(target=self._handle_fault, args=('Interlock2',), daemon=True).start()
 
     def _on_di4_change(self, pvname=None, value=None, **kwargs):
         """DI4故障回调（value=0为故障）"""
         logger.debug(f"DI4 PV变化: {pvname}={value}")
         if value == 0:
-            self._handle_fault('DI4', need_vac_reset=False)
+            threading.Thread(target=self._handle_fault, args=('DI4',), daemon=True).start()
 
     # ==================== 故障处理 ====================
 
-    def _handle_fault(self, fault_type, need_vac_reset=False):
+    def _handle_fault(self, fault_type):
         """
-        处理故障事件
+        处理故障事件：每次都执行完整复位（VacReset + 三步interlock复位）
 
         Args:
-            fault_type:     故障类型名称（用于日志）
-            need_vac_reset: 是否需要先触发VacReset（VacInterlock故障时为True）
+            fault_type: 故障类型名称（用于日志）
         """
         with self.lock:
             self.fault_count += 1
@@ -108,14 +107,14 @@ class FaultHandler:
                 self.fault_exceeded = True
                 return
 
-            # VacInterlock故障：先触发真空复位
-            if need_vac_reset:
-                self._reset_vac(fault_type)
-
-            # 所有故障均依次复位三个复位PV
+            # 所有故障都先做VacReset，再做三步interlock复位
+            self._reset_vac(fault_type)
             self._reset_all_faults(fault_type)
 
-            logger.info(f"{fault_type}故障复位完成，等待状态机重新初始化")
+            # 复位后检查各状态灯是否恢复
+            self._check_fault_status(fault_type)
+
+            logger.info(f"{fault_type}故障处理完成，等待状态机重新初始化")
 
     def _reset_vac(self, fault_type):
         """
@@ -125,12 +124,13 @@ class FaultHandler:
             fault_type: 故障类型名称（用于日志）
         """
         vac_reset_pv = self.config.get_pv('fault.VacReset')
-        logger.info(f"[{fault_type}] 优先触发真空复位: {vac_reset_pv}")
+        logger.info(f"[{fault_type}] VacReset ({vac_reset_pv}) → 1")
         self.pv_manager.put(vac_reset_pv, 1)
-        time.sleep(1)   # 保持高电平1s后回弹
+        time.sleep(4)   # 保持高电平1s后回弹
+        logger.info(f"[{fault_type}] VacReset ({vac_reset_pv}) → 0")
         self.pv_manager.put(vac_reset_pv, 0)
         time.sleep(2)   # 等待复位生效
-        logger.debug(f"[{fault_type}] 真空复位完成")
+        logger.info(f"[{fault_type}] VacReset 完成")
 
     def _reset_all_faults(self, fault_type):
         """
@@ -149,11 +149,37 @@ class FaultHandler:
         ]
 
         for name, pv in reset_pvs:
-            logger.info(f"[{fault_type}] 复位 {name}: {pv}")
+            logger.info(f"[{fault_type}] {name} ({pv}) → 1")
             self.pv_manager.put(pv, 1)
             time.sleep(1)
+            logger.info(f"[{fault_type}] {name} ({pv}) → 0")
             self.pv_manager.put(pv, 0)
             time.sleep(1)
+
+    def _check_fault_status(self, fault_type):
+        """
+        复位后检查除故障状态灯是否已恢复（1=正常, 0=仍故障）
+
+        Args:
+            fault_type: 故障类型名称（用于日志）
+        """
+        status_pvs = [
+            ('Arc',          self.config.get_pv('fault.arc')),
+            ('VacInterlock', self.config.get_pv('fault.VacInterlock')),
+            ('Interlock2',   self.config.get_pv('fault.interlock2')),
+            ('DI4',          self.config.get_pv('fault.di4')),
+        ]
+        all_ok = True
+        for name, pv in status_pvs:
+            val = self.pv_manager.get(pv)
+            status_str = '✅ 正常' if val == 1 else ('❌ 仍故障' if val == 0 else f'⚠️ 无法读取(val={val})')
+            logger.info(f"[{fault_type}] 状态检查 {name}: {status_str}")
+            if val != 1:
+                all_ok = False
+        if all_ok:
+            logger.info(f"[{fault_type}] 所有状态灯已恢复正常")
+        else:
+            logger.warning(f"[{fault_type}] 复位后仍有未恢复的故障！")
 
     # ==================== 供外部调用的接口 ====================
 
