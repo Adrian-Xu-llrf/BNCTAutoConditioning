@@ -66,6 +66,15 @@ class RFQController:
         self.retry_interval = float(self.config.loop.get('rf_retry_interval', 5.0))
         self.rf_startup_retry_count = 0
 
+        # wait_time 参数（初始化时读取一次，PV不存在时使用默认值60s）
+        wait_time_pv = self.config.get_pv('rf.wait_time')
+        wait_time_val = self.pv_manager.get(wait_time_pv)
+        try:
+            self.wait_time = float(wait_time_val) if wait_time_val is not None else 60.0
+        except (ValueError, TypeError):
+            logger.warning(f"wait_time PV读取失败，使用默认值 60.0s")
+            self.wait_time = 60.0
+
         # 状态集合常量，避免重复构造，提高可读性
         self.active_states = frozenset({
             RFQState.ADJUSTING_POWER,
@@ -477,7 +486,7 @@ class RFQController:
             self.current_drive_pv,
             self.target_power
         )
-        logger.info(power_msg)  # 详细信息记录到日志
+        logger.debug(power_msg)  # sub-controller 内部已打印，此处降为 debug 避免重复
 
         if power_ok:
             # 功率达标
@@ -530,18 +539,11 @@ class RFQController:
             return
 
         # ============================================================
-        # 修改：每次展脉宽前维持60s (非阻塞模式)
+        # 修改：每次展脉宽前维持wait_time秒 (非阻塞模式)
         # ============================================================
-        wait_time_pv = self.config.get_pv('rf.wait_time')
-        wait_time_val = self.pv_manager.get(wait_time_pv)
         elapsed = time.time() - self.state_enter_time
-        if elapsed < wait_time_val:
-            logger.debug(f"展脉宽前等待中: {wait_time_val - elapsed:.1f}s remaining...")
-        try:
-            wait_time_val = float(wait_time_val) if wait_time_val is not None else 60.0
-        except ValueError:
-            logger.warning(f"无效的等待时间值: {wait_time_val}, 使用默认值 60.0s")
-            wait_time_val = 60.0
+        if elapsed < self.wait_time:
+            logger.debug(f"展脉宽前等待中: {self.wait_time - elapsed:.1f}s remaining...")
 
             # 检查真空
             is_ok, vacuum_value, vacuum_pv = self.vacuum_checker.is_vacuum_ok()
@@ -569,7 +571,7 @@ class RFQController:
             self.pulse_end,
             self.pulse_step
         )
-        logger.info(pulse_msg)  # 详细信息记录到日志
+        logger.debug(pulse_msg)  # sub-controller 内部已打印，此处降为 debug 避免重复
 
         if pulse_ok:
             # 脉宽已达目标

@@ -18,7 +18,7 @@ loop:
   # 递增功率目标列表 (kW)
   # 每个目标完成一轮"调功率→展脉宽"后自动切换到下一个
   # 留空或不配置则退回读取 AutoC_TargetPower PV（单目标模式）
-  power_targets: [10,12,14]
+  power_targets: [16,18,22]
   persist_start_pulse: true  # 展脉宽后是否将起始脉宽持久化到PV
 
   # 展脉宽模式配置
@@ -49,17 +49,30 @@ pv:
 
   # 故障PV
   fault:
-    arc: 'RFQ:LLRF:Con01:Arc_Status'
-    interlock: 'RFQ:LLRF:Con01:Interlock_Status'
-    reset_interlock: 'RFQ:LLRF:Con01:ResetInterlock'
+    arc: 'RFQ:LLRF:Con01:ArcStatus_Rd'
+    VacInterlock: 'RFQ:LLRF:Con01:InterlockStatus_Rd'
+
+    interlock2: 'RFQ:LLRF:Con01:InterlockStatus2_Rd'
+    di4: 'RFQ:LLRF:Con01:di4'
+
     SSAComp: 'RFQ:LLRF:Mon02:ForwardPowerComp'
     ReflectedPowerComp: 'RFQ:LLRF:Mon02:ReflectedPowerComp'
-    ResetPWFaultStat: 'RFQ:LLRF:Mon02:ResetPWFaultStat'
+
+    reset_interlock: 'RFQ:LLRF:Con01:ResetInterlock'
+    ResetPWFaultStat1: 'RFQ:LLRF:Mon01:ResetPWFaultStat'
+    ResetPWFaultStat2: 'RFQ:LLRF:Mon02:ResetPWFaultStat'
     VacReset: 'RFQ:Reset' # 真空复位PV
   # 真空PV
   vacuum:
+    - 'RFQ:Vac1'
+    - 'RFQ:Vac2'
+    - 'RFQ:Vac3'
     - 'RFQ:Vac4'
-    - 'IA-RFQ-CR:VG01_CH02_CavE:Pres'
+    - 'RFQ:Vac5'
+    - 'RFQ:Vac6'
+    - 'RFQ:Vac7'
+    - 'RFQ:Vac8'
+
 
 
   # 老练控制PV

@@ -57,22 +57,32 @@ class RFQSimIOC(PVGroup):
         name='RFQ:LLRF:Con01_RFIn03:Power',
         doc='当前腔体功率（kW）[仿真输出]',
     )
-    wait_time = pvproperty(
-        value=0.5, dtype=float,
-        name='RFQ:LLRF:Con01:WaitTime_Set',
-        doc='等待时间',
-    )
+    # wait_time = pvproperty(
+    #     value=0.5, dtype=float,
+    #     name='RFQ:LLRF:Con01:WaitTime_Set',
+    #     doc='等待时间',
+    # )
 
     # ==================== 3.2 故障 PV ====================
-    arc_status = pvproperty(
+    arc_status_rd = pvproperty(
         value=1, dtype=int,
-        name='RFQ:LLRF:Con01:Arc_Status',
+        name='RFQ:LLRF:Con01:ArcStatus_Rd',
         doc='弧光状态（1=正常，0=故障）',
     )
-    interlock_status = pvproperty(
+    interlock_status_rd = pvproperty(
         value=1, dtype=int,
-        name='RFQ:LLRF:Con01:Interlock_Status',
+        name='RFQ:LLRF:Con01:InterlockStatus_Rd',
         doc='联锁状态（1=正常，0=故障）',
+    )
+    interlock_status2_rd = pvproperty(
+        value=1, dtype=int,
+        name='RFQ:LLRF:Con01:InterlockStatus2_Rd',
+        doc='联锁状态2（1=正常，0=故障）',
+    )
+    di4 = pvproperty(
+        value=1, dtype=int,
+        name='RFQ:LLRF:Con01:di4',
+        doc='数字输入4（1=正常，0=故障）',
     )
     reset_interlock = pvproperty(
         value=0, dtype=int,
@@ -89,22 +99,62 @@ class RFQSimIOC(PVGroup):
         name='RFQ:LLRF:Mon02:ReflectedPowerComp',
         doc='反射功率补偿状态',
     )
-    reset_pw_fault = pvproperty(
+    reset_pw_fault1 = pvproperty(
+        value=0, dtype=int,
+        name='RFQ:LLRF:Mon01:ResetPWFaultStat',
+        doc='复位功率故障1',
+    )
+    reset_pw_fault2 = pvproperty(
         value=0, dtype=int,
         name='RFQ:LLRF:Mon02:ResetPWFaultStat',
-        doc='复位功率故障',
+        doc='复位功率故障2',
+    )
+    vac_reset = pvproperty(
+        value=0, dtype=int,
+        name='RFQ:Reset',
+        doc='真空复位',
     )
 
     # ==================== 3.3 真空 PV ====================
+    vac1 = pvproperty(
+        value=1e-6, dtype=float,
+        name='RFQ:Vac1',
+        doc='真空计1（Pa）',
+    )
+    vac2 = pvproperty(
+        value=1e-6, dtype=float,
+        name='RFQ:Vac2',
+        doc='真空计2（Pa）',
+    )
+    vac3 = pvproperty(
+        value=1e-6, dtype=float,
+        name='RFQ:Vac3',
+        doc='真空计3（Pa）',
+    )
     vac4 = pvproperty(
         value=1e-6, dtype=float,
         name='RFQ:Vac4',
-        doc='真空计1（Pa）',
+        doc='真空计4（Pa）',
     )
-    vac_cav = pvproperty(
+    vac5 = pvproperty(
         value=1e-6, dtype=float,
-        name='IA-RFQ-CR:VG01_CH02_CavE:Pres',
-        doc='真空计2（Pa）',
+        name='RFQ:Vac5',
+        doc='真空计5（Pa）',
+    )
+    vac6 = pvproperty(
+        value=1e-6, dtype=float,
+        name='RFQ:Vac6',
+        doc='真空计6（Pa）',
+    )
+    vac7 = pvproperty(
+        value=1e-6, dtype=float,
+        name='RFQ:Vac7',
+        doc='真空计7（Pa）',
+    )
+    vac8 = pvproperty(
+        value=1e-6, dtype=float,
+        name='RFQ:Vac8',
+        doc='真空计8（Pa）',
     )
 
     # ==================== 3.4 老练控制 PV ====================
@@ -227,39 +277,53 @@ class RFQSimIOC(PVGroup):
 
     @trigger_arc.putter
     async def trigger_arc(self, instance, value):
-        """触发弧光故障: arc_status→0, rf_on→0, power→0，PV 自动清零（返回0）"""
+        """触发弧光故障: arc_status_rd→0, rf_on→0, drive→0, power→0，PV 自动清零"""
         if value == 1:
-            await self.arc_status.write(0)
+            await self.arc_status_rd.write(0)
             await self.rf_on.write(0)
-            await self.power.write(0.0)
-            return 0  # PV 写入后立即归零（自动清零）
-        return value
-
-    @trigger_interlock.putter
-    async def trigger_interlock(self, instance, value):
-        """触发联锁故障: interlock_status→0, rf_on→0, power→0，PV 自动清零"""
-        if value == 1:
-            await self.interlock_status.write(0)
-            await self.rf_on.write(0)
+            await self.pulse_drive.write(0.0)
+            await self.cw_drive.write(0.0)
             await self.power.write(0.0)
             return 0
         return value
 
-    # ==================== 4.3 故障复位回调 ====================
+    @trigger_interlock.putter
+    async def trigger_interlock(self, instance, value):
+        """触发联锁故障: interlock_status_rd→0, rf_on→0, drive→0, power→0，PV 自动清零"""
+        if value == 1:
+            await self.interlock_status_rd.write(0)
+            await self.rf_on.write(0)
+            await self.pulse_drive.write(0.0)
+            await self.cw_drive.write(0.0)
+            await self.power.write(0.0)
+            return 0
+        return value
+
+    # ==================== 4.4 故障复位回调 ====================
 
     @reset_interlock.putter
     async def reset_interlock(self, instance, value):
-        """复位联锁: 延迟 1 秒后 arc_status / interlock_status → 1"""
+        """复位联锁: 延迟 1 秒后 arc_status_rd / interlock_status_rd → 1"""
         if value == 1:
             import asyncio
             await asyncio.sleep(1.0)
-            await self.arc_status.write(1)
-            await self.interlock_status.write(1)
+            await self.arc_status_rd.write(1)
+            await self.interlock_status_rd.write(1)
         return value
 
-    @reset_pw_fault.putter
-    async def reset_pw_fault(self, instance, value):
-        """复位功率故障: 延迟 1 秒后 SSAComp / ReflectedPowerComp → 1"""
+    @reset_pw_fault1.putter
+    async def reset_pw_fault1(self, instance, value):
+        """复位功率故障1: 延迟 1 秒后 ssa_comp / reflected_power_comp → 1"""
+        if value == 1:
+            import asyncio
+            await asyncio.sleep(1.0)
+            await self.ssa_comp.write(1)
+            await self.reflected_power_comp.write(1)
+        return value
+
+    @reset_pw_fault2.putter
+    async def reset_pw_fault2(self, instance, value):
+        """复位功率故障2: 延迟 1 秒后 ssa_comp / reflected_power_comp → 1"""
         if value == 1:
             import asyncio
             await asyncio.sleep(1.0)

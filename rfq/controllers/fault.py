@@ -3,6 +3,20 @@
 故障处理模块 - 使用callback监听
 负责故障检测、计数和复位
 
+故障PV（值为0表示故障，1表示正常）:
+  - arc:          RFQ:LLRF:Con01:Arc_Status_Rd
+  - VacInterlock: RFQ:LLRF:Con01:Interlock_Status_Rd  (故障时需先触发VacReset)
+  - interlock2:   RFQ:LLRF:Con01:InterlockStatus2_Rd
+  - di4:          RFQ:LLRF:Con01:di4
+
+复位PV（所有故障均需依次复位）:
+  - reset_interlock:  RFQ:LLRF:Con01:ResetInterlock
+  - ResetPWFaultStat1: RFQ:LLRF:Mon01:ResetPWFaultStat
+  - ResetPWFaultStat2: RFQ:LLRF:Mon02:ResetPWFaultStat
+
+VacInterlock专有复位（需先于其他复位执行）:
+  - VacReset: RFQ:Reset
+
 作者: Chengye Xu
 日期: 2025-11
 """
@@ -34,85 +48,59 @@ class FaultHandler:
         self.fault_exceeded = False
         self.lock = threading.Lock()
 
-        # 创建PV对象用于callback
+        # 创建PV对象用于callback（所有故障PV值为0时表示故障，1表示正常）
         self.pv_arc = epics.PV(self.config.get_pv('fault.arc'))
-        self.pv_interlock = epics.PV(self.config.get_pv('fault.interlock'))
-        self.pv_SSAComp = epics.PV(self.config.get_pv('fault.SSAComp'))
-        self.pv_ReflectedPowerComp = epics.PV(self.config.get_pv('fault.ReflectedPowerComp'))
-
+        self.pv_vac_interlock = epics.PV(self.config.get_pv('fault.VacInterlock'))
+        self.pv_interlock2 = epics.PV(self.config.get_pv('fault.interlock2'))
+        self.pv_di4 = epics.PV(self.config.get_pv('fault.di4'))
 
         # 注册callback
         self.pv_arc.add_callback(self._on_arc_change)
-        self.pv_interlock.add_callback(self._on_interlock_change)
-        self.pv_SSAComp.add_callback(self._on_SSAComp_change)
-        self.pv_ReflectedPowerComp.add_callback(self._on_ReflectedPowerComp_change)
+        self.pv_vac_interlock.add_callback(self._on_vac_interlock_change)
+        self.pv_interlock2.add_callback(self._on_interlock2_change)
+        self.pv_di4.add_callback(self._on_di4_change)
 
-        logger.info("故障监听器已启动")
+        logger.info("故障监听器已启动 (arc / VacInterlock / interlock2 / di4)")
 
-    
-
+    # ==================== Callback函数 ====================
 
     def _on_arc_change(self, pvname=None, value=None, **kwargs):
-        """
-        Arc PV变化回调
-
-        Args:
-            pvname: PV名称
-            value: PV值
-        """
+        """Arc故障回调（value=0为故障）"""
         logger.debug(f"Arc PV变化: {pvname}={value}")
         if value == 0:
-            self._handle_fault('Arc', value)
+            self._handle_fault('Arc', need_vac_reset=False)
 
-    def _on_interlock_change(self, pvname=None, value=None, **kwargs):
-        """
-        Interlock PV变化回调
-
-        Args:
-            pvname: PV名称
-            value: PV值
-        """
-        logger.debug(f"Interlock PV变化: {pvname}={value}")
+    def _on_vac_interlock_change(self, pvname=None, value=None, **kwargs):
+        """VacInterlock故障回调（value=0为故障，需先触发VacReset）"""
+        logger.debug(f"VacInterlock PV变化: {pvname}={value}")
         if value == 0:
-            self._handle_fault('Interlock', value)
+            self._handle_fault('VacInterlock', need_vac_reset=True)
 
-    def _on_SSAComp_change(self, pvname=None, value=None, **kwargs):
-        """
-        SSAComp PV变化回调
-
-        Args:
-            pvname: PV名称
-            value: PV值
-        """
-        logger.debug(f"SSAComp PV变化: {pvname}={value}")
+    def _on_interlock2_change(self, pvname=None, value=None, **kwargs):
+        """InterlockStatus2故障回调（value=0为故障）"""
+        logger.debug(f"Interlock2 PV变化: {pvname}={value}")
         if value == 0:
-            self._handle_fault('SSAComp', value)
+            self._handle_fault('Interlock2', need_vac_reset=False)
 
-    def _on_ReflectedPowerComp_change(self, pvname=None, value=None, **kwargs):
-        """
-        ReflectedPowerComp PV变化回调
-
-        Args:
-            pvname: PV名称
-            value: PV值
-        """
-        logger.debug(f"ReflectedPowerComp PV变化: {pvname}={value}")
+    def _on_di4_change(self, pvname=None, value=None, **kwargs):
+        """DI4故障回调（value=0为故障）"""
+        logger.debug(f"DI4 PV变化: {pvname}={value}")
         if value == 0:
-            self._handle_fault('ReflectedPowerComp', value)
+            self._handle_fault('DI4', need_vac_reset=False)
 
+    # ==================== 故障处理 ====================
 
-
-    def _handle_fault(self, fault_type, value):
+    def _handle_fault(self, fault_type, need_vac_reset=False):
         """
         处理故障事件
 
         Args:
-            fault_type: 故障类型（Arc或Interlock）
-            value: PV值
+            fault_type:     故障类型名称（用于日志）
+            need_vac_reset: 是否需要先触发VacReset（VacInterlock故障时为True）
         """
         with self.lock:
             self.fault_count += 1
-            logger.warning(f"检测到{fault_type}故障 (第{self.fault_count}次): value={value}")
+            logger.warning(f"检测到{fault_type}故障 (第{self.fault_count}次)")
 
             # 检查是否超过最大故障次数
             if self.fault_count >= self.config.loop['max_faults']:
@@ -120,36 +108,62 @@ class FaultHandler:
                 self.fault_exceeded = True
                 return
 
-            # 根据故障类型执行相应的复位操作
-            if fault_type in ('Arc', 'Interlock'):
-                self._reset_interlock_faults()
-            elif fault_type in ('SSAComp', 'ReflectedPowerComp'):
-                self._reset_pw_faults()
+            # VacInterlock故障：先触发真空复位
+            if need_vac_reset:
+                self._reset_vac(fault_type)
 
-            # 故障复位后不自动打开RF，等待状态机重新初始化
-            logger.info("故障已复位，等待状态机重新初始化")
+            # 所有故障均依次复位三个复位PV
+            self._reset_all_faults(fault_type)
+
+            logger.info(f"{fault_type}故障复位完成，等待状态机重新初始化")
+
+    def _reset_vac(self, fault_type):
+        """
+        触发真空复位（RFQ:Reset），仅VacInterlock故障时调用
+
+        Args:
+            fault_type: 故障类型名称（用于日志）
+        """
+        vac_reset_pv = self.config.get_pv('fault.VacReset')
+        logger.info(f"[{fault_type}] 优先触发真空复位: {vac_reset_pv}")
+        self.pv_manager.put(vac_reset_pv, 1)
+        time.sleep(1)   # 保持高电平1s后回弹
+        self.pv_manager.put(vac_reset_pv, 0)
+        time.sleep(2)   # 等待复位生效
+        logger.debug(f"[{fault_type}] 真空复位完成")
+
+    def _reset_all_faults(self, fault_type):
+        """
+        依次复位所有故障PV:
+          1. ResetInterlock
+          2. ResetPWFaultStat1
+          3. ResetPWFaultStat2
+
+        Args:
+            fault_type: 故障类型名称（用于日志）
+        """
+        reset_pvs = [
+            ('reset_interlock',  self.config.get_pv('fault.reset_interlock')),
+            ('ResetPWFaultStat1', self.config.get_pv('fault.ResetPWFaultStat1')),
+            ('ResetPWFaultStat2', self.config.get_pv('fault.ResetPWFaultStat2')),
+        ]
+
+        for name, pv in reset_pvs:
+            logger.info(f"[{fault_type}] 复位 {name}: {pv}")
+            self.pv_manager.put(pv, 1)
+            time.sleep(1)
+            self.pv_manager.put(pv, 0)
+            time.sleep(1)
+
+    # ==================== 供外部调用的接口 ====================
 
     def _reset_interlock_faults(self):
-        reset_pv = self.config.get_pv('fault.reset_interlock')
-        logger.info(f"正在复位Interlock故障: {reset_pv}")
-        logger.debug(f"步骤1: 设置reset PV为1")
-        self.pv_manager.put(reset_pv, 1)
-        time.sleep(1)
-        logger.debug(f"步骤2: 设置reset PV为0")
-        self.pv_manager.put(reset_pv, 0)
-        time.sleep(2)
-        logger.debug("Interlock故障复位完成")
-
-    def _reset_pw_faults(self):
-        reset_pv = self.config.get_pv('fault.ResetPWFaultStat')
-        logger.info(f"正在复位功率故障: {reset_pv}")
-        logger.debug(f"步骤1: 设置reset PV为1")
-        self.pv_manager.put(reset_pv, 1)
-        time.sleep(1)
-        logger.debug(f"步骤2: 设置reset PV为0")
-        self.pv_manager.put(reset_pv, 0)
-        time.sleep(2)
-        logger.debug("功率故障复位完成")
+        """
+        供控制器主动调用的复位入口（RF启动失败时使用）
+        执行完整复位流程（不含VacReset）
+        """
+        logger.info("主动触发故障复位")
+        self._reset_all_faults('Manual')
 
     def is_fault_exceeded(self):
         """
@@ -183,7 +197,6 @@ class FaultHandler:
             self.fault_count += 1
             logger.warning(f"手动记录故障 (第{self.fault_count}次)")
 
-            # 检查是否超过最大故障次数
             if self.fault_count >= self.config.loop['max_faults']:
                 logger.error("故障次数超限")
                 self.fault_exceeded = True
@@ -204,7 +217,7 @@ class FaultHandler:
     def cleanup(self):
         """清理资源，取消callback"""
         self.pv_arc.clear_callbacks()
-        self.pv_interlock.clear_callbacks()
-        self.pv_SSAComp.clear_callbacks()
-        self.pv_ReflectedPowerComp.clear_callbacks()
+        self.pv_vac_interlock.clear_callbacks()
+        self.pv_interlock2.clear_callbacks()
+        self.pv_di4.clear_callbacks()
         logger.info("故障监听器已停止")

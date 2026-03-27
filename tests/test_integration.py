@@ -58,11 +58,11 @@ PV_MARGIN_LARGE = 'RFQ:LLRF:Con01:AutoC_MarginLarge'
 PV_MARGIN_SMALL = 'RFQ:LLRF:Con01:AutoC_MarginSmall'
 PV_WAIT_TIME = 'RFQ:LLRF:Con01:WaitTime_Set'
 PV_VAC4 = 'RFQ:Vac4'
-PV_VAC_CAV = 'IA-RFQ-CR:VG01_CH02_CavE:Pres'
+PV_VAC_CAV = 'RFQ:Vac2'
 PV_TRIGGER_ARC = 'RFQ:SIM:TriggerArc'
 PV_TRIGGER_INTERLOCK = 'RFQ:SIM:TriggerInterlock'
-PV_ARC_STATUS = 'RFQ:LLRF:Con01:Arc_Status'
-PV_INTERLOCK_STATUS = 'RFQ:LLRF:Con01:Interlock_Status'
+PV_ARC_STATUS = 'RFQ:LLRF:Con01:Arc_Status_Rd'
+PV_INTERLOCK_STATUS = 'RFQ:LLRF:Con01:Interlock_Status_Rd'
 
 # ==================== 测试超时常量 ====================
 TIMEOUT_SHORT = 10     # 短超时（秒）
@@ -133,7 +133,7 @@ def reset_all_pvs():
     epics.caput(PV_MARGIN_SMALL, 1.0, wait=True)
     epics.caput(PV_WAIT_TIME, 0.5, wait=True)
     epics.caput(PV_VAC4, 1e-6, wait=True)
-    epics.caput(PV_VAC_CAV, 1e-6, wait=True)
+    epics.caput('RFQ:Vac2', 1e-6, wait=True)
     epics.caput(PV_ARC_STATUS, 1, wait=True)
     epics.caput(PV_INTERLOCK_STATUS, 1, wait=True)
     time.sleep(1)
