@@ -139,7 +139,7 @@ class RFQSimIOC(PVGroup):
         doc='脉冲起始宽度（ms）',
     )
     autoc_pulse_end = pvproperty(
-        value=120.0, dtype=float,
+        value=110.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_PulseEnd',
         doc='脉冲目标宽度（ms）',
     )

@@ -242,9 +242,10 @@ class RFQController:
         self.pulse_start = self._get_pv('control.pulse_start')
         self.pulse_end = self._get_pv('control.pulse_end')
 
-        # pulse_step固定为0.5（临时限制，不从PV读取）
-        self.pulse_step = 0.5
-        logger.debug(f"脉冲参数: start={self.pulse_start}, end={self.pulse_end}, step={self.pulse_step}(固定)")
+        # 从PV读取脉宽步长，读取失败则使用默认值0.5
+        pulse_step_val = self._get_pv('control.pulse_step')
+        self.pulse_step = float(pulse_step_val) if pulse_step_val is not None else 0.5
+        logger.debug(f"脉冲参数: start={self.pulse_start}, end={self.pulse_end}, step={self.pulse_step}")
 
         if None in [self.pulse_start, self.pulse_end]:
             logger.warning("无法读取脉冲起止参数PV，使用默认值")
@@ -255,7 +256,7 @@ class RFQController:
             self.original_pulse_start = self.pulse_start
             logger.info(f"保存原始初始脉宽: {self.original_pulse_start} ms")
 
-        logger.info(f"脉冲参数: {self.pulse_start}-{self.pulse_end} ms, 步长={self.pulse_step} ms (固定)")
+        logger.info(f"脉冲参数: {self.pulse_start}-{self.pulse_end} ms, 步长={self.pulse_step} ms")
 
         return True
 
