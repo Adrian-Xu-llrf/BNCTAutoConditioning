@@ -122,6 +122,5 @@ if __name__ == '__main__':
     config = get_config()
     # print(config.get_pv('vacuum'))
     # print(config.get_pv('control.pulse_start'))
-    config.get
     # print(config.loop)
     # print(config.logging)

@@ -15,10 +15,6 @@ loop:
   max_faults: 20         # 最大故障次数
   max_iterations: 1000   # 最大迭代次数
 
-  # 递增功率目标列表 (kW)
-  # 每个目标完成一轮"调功率→展脉宽"后自动切换到下一个
-  # 留空或不配置则退回读取 AutoC_TargetPower PV（单目标模式）
-  power_targets: [10,20,30]
   wait_time_default: 1.0    # wait_time PV读取失败时的默认等待时间 (秒)，每次展脉宽等待时间
   wait_after_expand: 10.0    # 每次展脉宽结束后、开始调功率前的等待时间 (秒)
   pulse_step: 0.5           # 脉宽步长 (ms)，临时从config读取，后续改回PV
@@ -49,8 +45,8 @@ pv:
     sweep: 'RFQ:LLRF:Con01_DAC:FreqSweep_Set'
     tracking: 'RFQ:LLRF:Con01:frequency_tracking'
     power: 'RFQ:LLRF:Con01_RFIn03:Power'
-    wait_time: 'RFQ:LLRF:Con01:WaitTime_Set'
-    
+
+
 
   # 故障PV
   fault:
@@ -85,7 +81,8 @@ pv:
     start: 'RFQ:LLRF:Con01:AutoC_Start'
     reset: 'RFQ:LLRF:Con01:AutoC_Reset'
     status: 'RFQ:LLRF:Con01:AutoC_Status'
-    target_power: 'RFQ:LLRF:Con01:AutoC_TargetPower'
+    power_targets: 'RFQ:LLRF:Con01:AutoC_PowerTargets'
+    current_target_power: 'RFQ:LLRF:Con01:AutoC_CurrentTargetPower'
     init_drive: 'RFQ:LLRF:Con01:AutoC_InitDrive'
     pulse_start: 'RFQ:LLRF:Con01:AutoC_PulseStart'
     pulse_end: 'RFQ:LLRF:Con01:AutoC_PulseEnd'
@@ -94,6 +91,11 @@ pv:
     drive_step2: 'RFQ:LLRF:Con01:AutoC_DriveStep2'
     margin_large: 'RFQ:LLRF:Con01:AutoC_MarginLarge'
     margin_small: 'RFQ:LLRF:Con01:AutoC_MarginSmall'
+    pulse_wait: 'RFQ:LLRF:Con01:AutoC_PulseWaitTime'
+    wait_before_expand: 'RFQ:LLRF:Con01:AutoC_PowerWaitTime'
+    pulse_drop: 'RFQ:LLRF:Con01:AutoC_PulseDrop'
+    current_target_power: 'RFQ:LLRF:Con01:AutoC_CurrentTargetPower'
+    current_pulse: 'RFQ:LLRF:Con01:AutoC_CurrentPulse'
 
 # ==================== 日志配置 ====================
 logging:

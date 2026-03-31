@@ -57,11 +57,11 @@ class RFQSimIOC(PVGroup):
         name='RFQ:LLRF:Con01_RFIn03:Power',
         doc='当前腔体功率（kW）[仿真输出]',
     )
-    # wait_time = pvproperty(
-    #     value=0.5, dtype=float,
-    #     name='RFQ:LLRF:Con01:WaitTime_Set',
-    #     doc='等待时间',
-    # )
+    wait_time = pvproperty(
+        value=0.5, dtype=float,
+        name='RFQ:LLRF:Con01:WaitTime_Set',
+        doc='每次展脉宽等待时间（s）',
+    )
 
     # ==================== 3.2 故障 PV ====================
     arc_status_rd = pvproperty(
@@ -173,10 +173,17 @@ class RFQSimIOC(PVGroup):
         name='RFQ:LLRF:Con01:AutoC_Status',
         doc='当前状态文本',
     )
-    autoc_target_power = pvproperty(
-        value=50.0, dtype=float,
-        name='RFQ:LLRF:Con01:AutoC_TargetPower',
-        doc='目标功率（kW）',
+    autoc_power_targets = pvproperty(
+        value=[10.0, 20.0, 30.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        dtype=float,
+        max_length=10,
+        name='RFQ:LLRF:Con01:AutoC_PowerTargets',
+        doc='目标功率列表（waveform，kW），零值为无效元素',
+    )
+    autoc_current_target_power = pvproperty(
+        value=0.0, dtype=float,
+        name='RFQ:LLRF:Con01:AutoC_CurrentTargetPower',
+        doc='当前正在老练的目标功率（kW）[程序写入]',
     )
     autoc_init_drive = pvproperty(
         value=100.0, dtype=float,
@@ -218,6 +225,23 @@ class RFQSimIOC(PVGroup):
         name='RFQ:LLRF:Con01:AutoC_MarginSmall',
         doc='小裕度阈值（kW）',
     )
+    autoc_pulse_wait = pvproperty(
+        value=2.0, dtype=float,
+        name='RFQ:LLRF:Con01:AutoC_PulseWaitTime',
+        doc='展宽等待时间（ms）',
+    )
+    autoc_power_wait = pvproperty(
+        value=2.0, dtype=float,
+        name='RFQ:LLRF:Con01:AutoC_PowerWaitTime',
+        doc='功率等待时间（ms）',
+    )
+    autoc_pulse_drop = pvproperty(
+        value=20.0, dtype=float,
+        name='RFQ:LLRF:Con01:AutoC_PulseDrop',
+        doc='脉冲下降宽度（ms）',
+    )
+
+
 
     # ==================== 3.5 测试辅助 PV ====================
     trigger_arc = pvproperty(
@@ -350,6 +374,7 @@ if __name__ == '__main__':
     print("  caproto-put RFQ:LLRF:Con01:Opr_RFOn 1")
     print("  caproto-put RFQ:LLRF:Con01:AmpCWDrive_Set 100")
     print("  caproto-get RFQ:LLRF:Con01_RFIn03:Power   # 期望≈10kW")
+    print("  caproto-get RFQ:LLRF:Con01:AutoC_PowerTargets  # 期望[10,20,30,0,...]")
     print("=" * 55)
 
     run(ioc.pvdb, **run_options)
