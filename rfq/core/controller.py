@@ -206,7 +206,9 @@ class RFQController:
         else:
             logger.warning("脉宽参数未初始化，无法执行Trip后脉宽调整")
 
-        # 重新初始化监听器
+        # 先清理旧监听器的 callback，再重新初始化
+        self.fault_handler.cleanup()
+        self.vacuum_checker.cleanup()
         self.fault_handler = FaultHandler(self.config)
         self.vacuum_checker = VacuumChecker(self.config)
 
