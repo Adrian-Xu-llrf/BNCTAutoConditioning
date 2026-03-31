@@ -294,15 +294,15 @@ class RFQController:
             self.wait_time = _default_wait
         logger.info(f"pulse_wait (wait_time): {self.wait_time} s")
 
-        self.wait_after_expand_pv = self.config.get_pv('control.wait_before_expand')
-        self.wait_after_expand_val = self.pv_manager.get(self.wait_after_expand_pv)
-        _default_wait_expand = float(self.config.get('loop', 'wait_after_expand', default=10.0))
+        self.wait_before_expand_pv = self.config.get_pv('control.wait_before_expand')
+        self.wait_before_expand_val = self.pv_manager.get(self.wait_before_expand_pv)
+        _default_wait_expand = float(self.config.get('loop', 'wait_before_expand', default=10.0))
         try:
-            self.wait_after_expand = float(self.wait_after_expand_val) if self.wait_after_expand_val is not None else _default_wait_expand
+            self.wait_before_expand = float(self.wait_before_expand_val) if self.wait_before_expand_val is not None else _default_wait_expand
         except (ValueError, TypeError):
             logger.warning(f"wait_before_expand PV读取失败，使用默认值 {_default_wait_expand}s")
-            self.wait_after_expand = _default_wait_expand
-        logger.info(f"wait_before_expand: {self.wait_after_expand} s")
+            self.wait_before_expand = _default_wait_expand
+        logger.info(f"wait_before_expand: {self.wait_before_expand} s")
 
         return True
 
@@ -510,7 +510,7 @@ class RFQController:
         # 展脉宽后加功率前的非阻塞等待
         if self._wait_before_power:
             elapsed = time.time() - self.state_enter_time
-            wait_duration = self.wait_after_expand
+            wait_duration = self.wait_before_expand
             remaining = wait_duration - elapsed
             if remaining > 0:
                 logger.debug(f"加功率前等待中: {remaining:.1f}s remaining...")
@@ -656,7 +656,7 @@ class RFQController:
 
                 # 先等待，等待结束后再恢复初始脉宽（在_handle_adjusting_power中执行）
                 self._need_reset_pulse = True
-                logger.info(f"脉宽已达目标，将等待 {self.wait_time:.1f} 秒后恢复初始脉宽，准备下一功率目标展脉宽")
+                logger.info(f"脉宽已达目标，将等待 {self.wait_before_expand:.1f} 秒后恢复初始脉宽，准备下一功率目标展脉宽")
 
                 self._wait_before_power = True
                 self.set_state(RFQState.ADJUSTING_POWER)
@@ -665,8 +665,9 @@ class RFQController:
                 self.set_state(RFQState.COMPLETED)
         else:
             # 脉宽增加后，进入调功率前等待
+            self._put_pv('control.current_pulse', self._get_pv('rf.pulse_time') * 1000)
             expand_complete_time = time.strftime('%Y-%m-%d %H:%M:%S')
-            logger.info(f"展脉宽完成，{expand_complete_time}，将等待 {self.wait_after_expand:.1f} 秒后开始调功率")
+            logger.info(f"展脉宽完成，{expand_complete_time}，将等待 {self.wait_before_expand:.1f} 秒后开始调功率")
             self.power_controller.reset_iteration_count()
             self._wait_before_power = True
             self.set_state(RFQState.ADJUSTING_POWER)

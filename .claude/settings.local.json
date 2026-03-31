@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find e:/OneDrive/200-Academic/03-Project/西核所/AutoConditioning -not -path */tests/* -not -path */.pytest_cache/* -not -path */__pycache__/*)"
+    ]
+  }
+}

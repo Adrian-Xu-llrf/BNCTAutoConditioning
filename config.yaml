@@ -16,7 +16,7 @@ loop:
   max_iterations: 1000   # 最大迭代次数
 
   wait_time_default: 1.0    # wait_time PV读取失败时的默认等待时间 (秒)，每次展脉宽等待时间
-  wait_after_expand: 10.0    # 每次展脉宽结束后、开始调功率前的等待时间 (秒)
+  wait_before_expand: 10.0    # 每次展脉宽结束后、开始调功率前的等待时间 (秒)
   pulse_step: 0.5           # 脉宽步长 (ms)，临时从config读取，后续改回PV
   persist_start_pulse: false  # 展脉宽后是否将起始脉宽持久化到PV
 
@@ -94,7 +94,6 @@ pv:
     pulse_wait: 'RFQ:LLRF:Con01:AutoC_PulseWaitTime'
     wait_before_expand: 'RFQ:LLRF:Con01:AutoC_PowerWaitTime'
     pulse_drop: 'RFQ:LLRF:Con01:AutoC_PulseDrop'
-    current_target_power: 'RFQ:LLRF:Con01:AutoC_CurrentTargetPower'
     current_pulse: 'RFQ:LLRF:Con01:AutoC_CurrentPulse'
 
 # ==================== 日志配置 ====================
