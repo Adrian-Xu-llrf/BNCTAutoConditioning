@@ -628,6 +628,7 @@ class RFQController:
             if not is_ok:
                 logger.warning("等待期间真空不达标，进入等待状态")
                 self.set_state(RFQState.WAITING_VACUUM)
+            self._sleep_loop()
             return
         # ============================================================
 
