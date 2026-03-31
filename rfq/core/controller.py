@@ -62,9 +62,10 @@ class RFQController:
         self.power_targets = []
         self.target_index = 0
 
-        # RF启动重试相关参数（来自配置，提供合理默认值）
-        self.max_rf_startup_retries = int(self.config.loop.get('rf_startup_retries', 3))
-        self.retry_interval = float(self.config.loop.get('rf_retry_interval', 5.0))
+        # RF启动重试相关参数（从 loop.rf_startup 读取）
+        rf_startup_cfg = self.config.get('loop', 'rf_startup', default={})
+        self.max_rf_startup_retries = int(rf_startup_cfg.get('max_retry', 3))
+        self.retry_interval = float(rf_startup_cfg.get('retry_interval', 5.0))
         self.rf_startup_retry_count = 0
 
         # 状态集合常量，避免重复构造，提高可读性
