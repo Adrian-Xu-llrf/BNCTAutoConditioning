@@ -200,6 +200,11 @@ class RFQSimIOC(PVGroup):
         name='RFQ:LLRF:Con01:AutoC_PulseEnd',
         doc='脉冲目标宽度（ms）',
     )
+    autoc_current_pulse = pvproperty(
+        value=100.0, dtype=float,
+        name='RFQ:LLRF:Con01:AutoC_CurrentPulse',
+        doc='当前脉冲宽度（ms）',
+    )
     autoc_pulse_step = pvproperty(
         value=10.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_PulseStep',
