@@ -176,8 +176,8 @@ class RFQController:
         - 响应Reset按钮操作
 
         Args:
-            clear_faults: True=清零故障计数（用户主动Reset）；
-                          False=保留故障计数（自动故障恢复，让max_faults跨trip生效）
+            clear_faults: True=清零故障计数（用户主动Reset），回到最初状态（第一个功率目标，初始脉宽）；
+                          False=保留故障计数（自动故障恢复），保持当前功率目标，脉宽退 pulse_drop
         """
         logger.info(f"执行Reset，状态机重置到IDLE (clear_faults={clear_faults})")
 
@@ -196,24 +196,46 @@ class RFQController:
         self._wait_before_power = False
         self._need_reset_pulse = False
 
-        # Trip后脉宽下降（不从头开始，保持当前功率目标）
-        if self.pulse_start is not None and self.original_pulse_start is not None:
-            pulse_drop_pv = self.config.get_pv('control.pulse_drop')
-            pulse_drop_val = self.pv_manager.get(pulse_drop_pv)
-            pulse_drop = float(pulse_drop_val) if pulse_drop_val is not None else 20.0
-            new_pulse_start = self.pulse_start - pulse_drop
-            if new_pulse_start < self.original_pulse_start:
-                new_pulse_start = self.original_pulse_start
-                logger.warning(f"Trip后脉宽已降至初始值 {new_pulse_start:.1f}ms，无法再降")
+        if clear_faults:
+            # ---- 手动 Reset：回到最初状态 ----
+            self.target_index = 0
+            logger.info("手动Reset：功率目标索引归零")
+            self.fault_handler.reset_fault_count()
+
+            if self.power_targets:
+                first_target = self.power_targets[0]
+                self._put_pv('control.current_target_power', first_target)
+                logger.info(f"手动Reset：目标功率恢复至第一个目标 {first_target} kW")
             else:
-                logger.info(f"Trip后脉宽下降 {pulse_drop:.1f}ms: {self.pulse_start:.1f} -> {new_pulse_start:.1f}ms")
-            self.pulse_start = new_pulse_start
-            pulse_time_s = float(self.pulse_start) / 1000.0
-            self._put_pv('rf.pulse_time', pulse_time_s)
-            self._put_pv('control.current_pulse', self.pulse_start)
-            logger.info(f"更新脉宽PV: {self.pulse_start:.1f}ms")
+                logger.warning("功率目标列表为空，无法恢复目标功率PV")
+
+            if self.original_pulse_start is not None:
+                self.pulse_start = self.original_pulse_start
+                pulse_time_s = float(self.pulse_start) / 1000.0
+                self._put_pv('rf.pulse_time', pulse_time_s)
+                self._put_pv('control.current_pulse', self.pulse_start)
+                logger.info(f"手动Reset：脉宽恢复至原始初始值 {self.pulse_start:.1f}ms")
+            else:
+                logger.warning("脉宽参数未初始化，等待下次初始化时从PV加载")
         else:
-            logger.warning("脉宽参数未初始化，无法执行Trip后脉宽调整")
+            # ---- 自动恢复（Trip后）：保持当前功率目标，脉宽下降 pulse_drop ----
+            if self.pulse_start is not None and self.original_pulse_start is not None:
+                pulse_drop_pv = self.config.get_pv('control.pulse_drop')
+                pulse_drop_val = self.pv_manager.get(pulse_drop_pv)
+                pulse_drop = float(pulse_drop_val) if pulse_drop_val is not None else 20.0
+                new_pulse_start = self.pulse_start - pulse_drop
+                if new_pulse_start < self.original_pulse_start:
+                    new_pulse_start = self.original_pulse_start
+                    logger.warning(f"Trip后脉宽已降至初始值 {new_pulse_start:.1f}ms，无法再降")
+                else:
+                    logger.info(f"Trip后脉宽下降 {pulse_drop:.1f}ms: {self.pulse_start:.1f} -> {new_pulse_start:.1f}ms")
+                self.pulse_start = new_pulse_start
+                pulse_time_s = float(self.pulse_start) / 1000.0
+                self._put_pv('rf.pulse_time', pulse_time_s)
+                self._put_pv('control.current_pulse', self.pulse_start)
+                logger.info(f"更新脉宽PV: {self.pulse_start:.1f}ms")
+            else:
+                logger.warning("脉宽参数未初始化，无法执行Trip后脉宽调整")
 
         # 先清理旧监听器的 callback，再重新初始化
         self.fault_handler.cleanup()
