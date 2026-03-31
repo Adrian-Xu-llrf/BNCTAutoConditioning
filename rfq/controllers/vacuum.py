@@ -27,13 +27,14 @@ class VacuumChecker:
         self.config = config
         self.lock = threading.Lock()
 
-        # 真空状态
-        self.vacuum_ok = True
-        self.worst_vacuum = 0.0
+        # 真空状态（初始为False，等待首个callback确认后才可能变True）
+        self.vacuum_ok = False
+        self.worst_vacuum = float('inf')
         self.worst_vacuum_pv = None
         self.vacuum_values = {}  # 存储所有真空PV的当前值
 
         # 创建PV对象并注册callback
+        # 初始值设为inf（保守fail-safe）：callback未到前视为真空超标，禁止启动
         self.pv_objects = []
         vacuum_pv_names = self.config.pv['vacuum']
 
@@ -41,7 +42,15 @@ class VacuumChecker:
             pv = epics.PV(pv_name)
             pv.add_callback(self._on_vacuum_change, pv_name=pv_name)
             self.pv_objects.append(pv)
-            self.vacuum_values[pv_name] = 0.0
+            self.vacuum_values[pv_name] = float('inf')
+
+        # 主动读取一次当前值，消除启动时callback未到的窗口
+        for pv_name, pv in zip(vacuum_pv_names, self.pv_objects):
+            val = pv.get()
+            if val is not None:
+                self._on_vacuum_change(pvname=pv_name, value=float(val), pv_name=pv_name)
+            else:
+                logger.warning(f"真空PV初始读取失败（未连接）: {pv_name}")
 
         logger.info(f"真空监听器已启动，监听{len(self.pv_objects)}个真空PV")
 
