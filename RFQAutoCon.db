@@ -1,0 +1,214 @@
+record(bo, "$(P):AutoC_Start") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Auto Conditioning Start")
+    field(ZNAM, "Stop")
+    field(ONAM, "Start")
+    field(VAL,  "0")
+    field(PINI, "YES")
+}
+
+record(bo, "$(P):AutoC_Reset") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Auto Conditioning Reset")
+    field(ZNAM, "Idle")
+    field(ONAM, "Reset")
+    field(VAL,  "0")
+    field(PINI, "YES")
+}
+
+record(stringout, "$(P):AutoC_Status") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Auto Conditioning Status")
+    field(VAL,  "Idle")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_TargetPower") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Target Power")
+    field(EGU,  "kW")
+    field(PREC, "3")
+    field(DRVH, "110")
+    field(DRVL, "0")
+    field(HOPR, "110")
+    field(LOPR, "0")
+    field(VAL,  "0")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_InitDrive") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Initial Drive Level")
+    field(PREC, "2")
+    field(DRVH, "8000")
+    field(DRVL, "0")
+    field(HOPR, "8000")
+    field(LOPR, "0")
+    field(VAL,  "100")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_PulseStart") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Pulse Width Start")
+    field(EGU,  "ms")
+    field(PREC, "1")
+    field(DRVH, "999")
+    field(DRVL, "0")
+    field(HOPR, "999")
+    field(LOPR, "0")
+    field(VAL,  "10")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_PulseEnd") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Pulse Width End")
+    field(EGU,  "ms")
+    field(PREC, "1")
+    field(DRVH, "1000")
+    field(DRVL, "0")
+    field(HOPR, "1000")
+    field(LOPR, "0")
+    field(VAL,  "100")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_PulseStep") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Pulse Width Step")
+    field(EGU,  "ms")
+    field(PREC, "1")
+    field(DRVH, "100")
+    field(DRVL, "0.1")
+    field(HOPR, "100")
+    field(LOPR, "0")
+    field(VAL,  "10")
+    field(PINI, "YES")
+}
+
+
+record(ao, "$(P):AutoC_DriveStep1") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Drive Step 1")
+    field(PREC, "2")
+    field(DRVH, "1000")
+    field(DRVL, "0")
+    field(HOPR, "1000")
+    field(LOPR, "0")
+    field(VAL,  "10")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_DriveStep2") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Drive Step 2")
+    field(PREC, "2")
+    field(DRVH, "500")
+    field(DRVL, "0")
+    field(HOPR, "500")
+    field(LOPR, "0")
+    field(VAL,  "50")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_MarginLarge") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Large Margin ")
+    field(EGU,  "kW")
+    field(PREC, "3")
+    field(DRVH, "100")
+    field(DRVL, "0")
+    field(HOPR, "100")
+    field(LOPR, "0")
+    field(VAL,  "5")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_MarginSmall") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Small Margin ")
+    field(EGU,  "kW")
+    field(PREC, "3")
+    field(DRVH, "10")
+    field(DRVL, "0")
+    field(HOPR, "10")
+    field(LOPR, "0")
+    field(VAL,  "2")
+    field(PINI, "YES")
+}
+
+record(waveform, "$(P):AutoC_PowerTargets") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Power Target List (kW), zero=invalid")
+    field(FTVL, "DOUBLE")
+    field(INP,  "@array")
+    field(NELM, "10")
+    field(VAL,  "10,20,30,0,0,0,0,0,0,0")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_PulseWaitTime") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Wait Time Before Expanding Pulse")
+    field(EGU,  "s")
+    field(PREC, "1")
+    field(DRVH, "60")
+    field(DRVL, "0")
+    field(HOPR, "60")
+    field(LOPR, "0")
+    field(VAL,  "2")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_PowerWaitTime") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Wait Time Before Adjusting Power")
+    field(EGU,  "s")
+    field(PREC, "1")
+    field(DRVH, "60")
+    field(DRVL, "0")
+    field(HOPR, "60")
+    field(LOPR, "0")
+    field(VAL,  "2")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_PulseDrop") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Pulse Width Drop on Trip")
+    field(EGU,  "ms")
+    field(PREC, "1")
+    field(DRVH, "100")
+    field(DRVL, "0")
+    field(HOPR, "100")
+    field(LOPR, "0")
+    field(VAL,  "20")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_CurrentTargetPower") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Current Target Power (readback)")
+    field(EGU,  "kW")
+    field(PREC, "3")
+    field(DRVH, "110")
+    field(DRVL, "0")
+    field(HOPR, "110")
+    field(LOPR, "0")
+    field(VAL,  "0")
+    field(PINI, "YES")
+}
+
+record(ao, "$(P):AutoC_CurrentPulse") {
+	field(DTYP, "Soft Channel")
+    field(DESC, "Current Pulse Width (readback)")
+    field(EGU,  "ms")
+    field(PREC, "1")
+    field(DRVH, "1000")
+    field(DRVL, "0")
+    field(HOPR, "1000")
+    field(LOPR, "0")
+    field(VAL,  "0")
+    field(PINI, "YES")
+}
