@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-03-31T19:45:21",
+  "python": "3.12.2",
+  "cases": [
+    {
+      "id": "TC-INT-01",
+      "name": "完整三段功率老练（Happy Path）",
+      "output": {
+        "statuses": [
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "COMPLETED"
+        ],
+        "targets_seen": [
+          0.0,
+          10.0,
+          20.0,
+          30.0
+        ],
+        "final_start": 0,
+        "final_rf_on": 1,
+        "final_pulse_time_s": 0.11,
+        "sample_count": 272
+      },
+      "checks": {
+        "idle_ready": true,
+        "completed": true,
+        "status_initializing_seen": true,
+        "status_adjusting_seen": true,
+        "status_expanding_seen": true,
+        "status_completed_seen": true,
+        "target_10_seen": true,
+        "target_20_seen": true,
+        "target_30_seen": true,
+        "start_auto_reset_to_0": true,
+        "rf_on_kept_1_after_complete": true,
+        "pulse_reached_end_110ms": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "TC-INT-02",
+      "name": "CW 模式完整流程",
+      "output": {
+        "statuses": [
+          "IDLE",
+          "INITIALIZING",
+          "COMPLETED"
+        ],
+        "targets_seen": [
+          10.0
+        ],
+        "pulse_time_expected_s": 0.123,
+        "pulse_time_sentinel_s": 0.123,
+        "final_pulse_time_s": 0.123,
+        "final_cw_drive": 100.0,
+        "final_pulse_drive": 0.0,
+        "final_power": 9.976739135822404,
+        "sample_count": 10
+      },
+      "checks": {
+        "idle_ready": true,
+        "completed": true,
+        "status_completed_seen": true,
+        "cw_target_seen_10": true,
+        "pulse_time_unchanged": true,
+        "cw_drive_used": true,
+        "pulse_drive_not_used": true,
+        "power_positive": true
+      },
+      "conclusion": "通过"
+    }
+  ]
+}

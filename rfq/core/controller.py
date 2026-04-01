@@ -79,7 +79,8 @@ class RFQController:
             RFQState.WAITING_VACUUM,
             RFQState.EXPANDING_PULSE,
         })
-        self.terminal_states = frozenset({RFQState.ERROR, RFQState.STOPPED})
+        # ERROR/STOPPED 不应导致主循环退出，需常驻等待 reset 信号恢复
+        self.terminal_states = frozenset()
 
         # 状态处理函数映射（初始化一次）
         self.state_handlers = {
@@ -180,6 +181,10 @@ class RFQController:
                           False=保留故障计数（自动故障恢复），保持当前功率目标，脉宽退 pulse_drop
         """
         logger.info(f"执行Reset，状态机重置到IDLE (clear_faults={clear_faults})")
+        # 手动复位时清除启动信号，避免残留 start=1 导致刚回到 IDLE 就再次自动启动
+        # 自动故障恢复(clear_faults=False)需要保留 start=1 才能自动继续
+        if clear_faults:
+            self._put_pv('control.start', 0)
 
         # 保存故障计数（自动恢复时需要跨handler实例保留）
         if not clear_faults:
@@ -334,8 +339,9 @@ class RFQController:
         logger.info(f"pulse_wait (wait_time): {self.wait_time} s")
 
         self.wait_before_expand_pv = self.config.get_pv('control.wait_before_expand')
-        self.wait_before_expand_val = self.pv_manager.get(self.wait_before_expand_pv)
-        _default_wait_expand = float(self.config.get('loop', 'wait_before_expand', default=10.0))
+        self.wait_before_expand_min = self.pv_manager.get(self.wait_before_expand_pv)
+        self.wait_before_expand_val = self.wait_before_expand_min*60
+        _default_wait_expand = float(self.config.get('loop', 'wait_before_expand', default=1.0))
         try:
             self.wait_before_expand = float(self.wait_before_expand_val) if self.wait_before_expand_val is not None else _default_wait_expand
         except (ValueError, TypeError):
@@ -704,13 +710,8 @@ class RFQController:
                 logger.debug("所有功率目标已完成，老练完成")
                 self.set_state(RFQState.COMPLETED)
         else:
-            # 脉宽增加后，进入调功率前等待
+            # 脉宽未达目标，继续下一次展宽
             self._put_pv('control.current_pulse', self._get_pv('rf.pulse_time') * 1000)
-            expand_complete_time = time.strftime('%Y-%m-%d %H:%M:%S')
-            logger.info(f"展脉宽完成，{expand_complete_time}，将等待 {self.wait_before_expand:.1f} 秒后开始调功率")
-            self.power_controller.reset_iteration_count()
-            self._wait_before_power = True
-            self.set_state(RFQState.ADJUSTING_POWER)
 
         self._sleep_loop()
 
@@ -746,10 +747,6 @@ class RFQController:
 
     def _handle_completed(self):
         """处理COMPLETED状态 - 老练完成"""
-        # 检查reset信号
-        if self._check_reset_signal():
-            return
-
         # 首次进入时输出统计信息
         if 'completed' not in self.terminal_cleaned:
             logger.info("="*60)
@@ -764,6 +761,10 @@ class RFQController:
 
             # 标记已处理
             self.terminal_cleaned['completed'] = True
+
+        # 完成态统计与start清零应优先执行，再响应reset
+        if self._check_reset_signal():
+            return
 
         # 保持在COMPLETED状态，等待reset信号
         self._sleep(1)

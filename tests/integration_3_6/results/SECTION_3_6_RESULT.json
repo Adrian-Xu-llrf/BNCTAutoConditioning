@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-03-31T20:48:34",
+  "python": "3.12.2",
+  "cases": [
+    {
+      "id": "TC-INT-12",
+      "name": "RF 启动后 rf_on 未响应，触发重试",
+      "output": {
+        "status_timeline": [
+          "IDLE",
+          "INITIALIZING",
+          "ERROR",
+          "IDLE"
+        ],
+        "rf_on_in_error": 0,
+        "retry_attempt_count": 5,
+        "has_retry_log": true,
+        "has_max_retry_log": true
+      },
+      "checks": {
+        "idle_ready": true,
+        "entered_error_after_retries": true,
+        "rf_off_in_error": true,
+        "retry_count_reached_max_5": true,
+        "retry_logs_present": true,
+        "manual_reset_back_to_idle": true
+      },
+      "conclusion": "通过"
+    }
+  ]
+}

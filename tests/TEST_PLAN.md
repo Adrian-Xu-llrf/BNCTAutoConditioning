@@ -94,7 +94,7 @@ caproto-get RFQ:LLRF:Con01_RFIn03:Power
 | U-F-03 | 未超限时不设标志 | `max_faults=5`，触发 4 次 | `is_fault_exceeded()` 返回 False |
 | U-F-04 | reset_fault_count | 触发 3 次后调用 reset | `get_fault_count()` 返回 0 |
 | U-F-05 | 故障恢复步骤顺序 | 模拟 arc 故障 | 按序执行：VacReset → ResetInterlock → ResetPWFaultStat1 → ResetPWFaultStat2 |
-| U-F-06 | 恢复后验证 PV | 故障 PV 恢复为 1 后 | `_verify_faults_cleared()` 返回 True |
+| U-F-06 | 恢复后验证 PV | 故障 PV 恢复为 1 后 | `_check_fault_status()` 日志显示故障状态均恢复 |
 | U-F-07 | 恢复失败处理 | 复位后故障 PV 仍为 0 | 记录错误，不进入死循环 |
 | U-F-08 | cleanup 取消回调 | 调用 cleanup() | 回调不再响应后续故障注入 |
 
@@ -115,17 +115,19 @@ caproto-get RFQ:LLRF:Con01_RFIn03:Power
 |------|---------|---------|---------|
 | U-R-01 | 手动 reset（clear_faults=True） | 故障计数=5，当前目标=第2段 | fault_count 清零，回到第1段功率，pulse_start 恢复 original |
 | U-R-02 | 自动恢复 reset（clear_faults=False） | 故障计数=3，当前目标=第2段 | fault_count 保持 3，保持当前目标，pulse_start 减少 pulse_drop |
-| U-R-03 | pulse_start 下限 | pulse_start 已很小，pulse_drop 大 | pulse_start 不低于某合理下限（或归零） |
+| U-R-03 | pulse_start 下限 | pulse_start 已很小，pulse_drop 大 | pulse_start 不低于 `original_pulse_start` |
 | U-R-04 | reset 重建子控制器 | 调用 reset 后 | FaultHandler 和 VacuumChecker 为新实例（旧回调已 cleanup） |
 
 ### 2.6 Config（`rfq/core/config.py`）
 
 | 编号 | 测试名称 | 输入条件 | 预期结果 |
 |------|---------|---------|---------|
-| U-C-01 | PV 读取成功 | PV 返回有效值 | 使用 PV 值，不使用 config.yaml 默认值 |
-| U-C-02 | PV 读取失败（返回 None） | PVManager.get() 返回 None | 回退到 config.yaml 中对应默认值，不抛异常 |
-| U-C-03 | 嵌套路径访问 | `config.get('loop', 'max_faults')` | 正确返回值 |
-| U-C-04 | PV 名称查找 | `config.get_pv('rf.pulse_drive')` | 返回 `'RFQ:LLRF:Con01:AmpPulseDrive_Set'` |
+| U-C-01 | 嵌套路径访问 | `config.get('loop', 'max_faults')` | 正确返回值 |
+| U-C-02 | 缺失路径默认值 | `config.get('loop', 'not_exists', default=123)` | 返回 `123` |
+| U-C-03 | PV 名称查找 | `config.get_pv('rf.pulse_drive')` | 返回 `'RFQ:LLRF:Con01:AmpPulseDrive_Set'` |
+| U-C-04 | reload 生效 | 修改配置文件后调用 `config.reload()` | 后续 `config.get(...)` 返回新值 |
+
+> 注：PV 读取成功/失败及回退默认值属于 `RFQController._load_parameters()`、`PowerController`、`PulseController` 的测试范围，不属于 `Config` 类本身。
 
 ---
 
@@ -205,22 +207,24 @@ caproto-get RFQ:LLRF:Con01_RFIn03:Power
 
 ---
 
-### 3.3 用户停止
+### 3.3 用户暂停与复位
 
-#### TC-INT-05：正常运行中用户停止
+#### TC-INT-05：正常运行中用户暂停并复位
 
 **操作步骤：**
 1. 启动老练，等待进入 `ADJUSTING_POWER`
-2. 写入 `AutoC_Reset=1`（停止信号）
+2. 写入 `AutoC_Start=0`（暂停信号）
+3. 确认进入 `PAUSED` 后，写入 `AutoC_Reset=1`（手动复位）
 
 **验证点：**
 
 | 预期行为 |
 |---------|
-| `AutoC_Status` 变为 `STOPPED` |
-| `rf_on` 置为 0 |
-| `pulse_drive`（或 `cw_drive`）Drive 归零 |
-| 写入 `AutoC_Reset=0` 并重新写 `AutoC_Start=1` 后，可重新启动 |
+| 写入 `AutoC_Start=0` 后，`AutoC_Status` 变为 `PAUSED` |
+| 写入 `AutoC_Reset=1` 后，状态回到 `IDLE`，fault_count 清零 |
+| 重新写 `AutoC_Start=1` 后，可重新启动 |
+
+> 说明：当前实现中，运行态“停止并关RF/Drive归零”不由 `AutoC_Reset` 直接触发。
 
 ---
 
@@ -257,7 +261,7 @@ caproto-get RFQ:LLRF:Con01_RFIn03:Power
 #### TC-INT-08：故障次数超限进入 ERROR
 
 **操作步骤：**
-1. 将 sim_ioc 中 `AutoC_PowerTargets` 的 max_faults 对应 PV 写为 3（或修改 config.yaml `max_faults: 3`）
+1. 将 `config.yaml` 中 `loop.max_faults` 修改为 `3`，重启控制器
 2. 连续触发 3 次 Arc 故障，每次等待恢复完成
 
 **验证点：**
@@ -310,11 +314,11 @@ caproto-get RFQ:LLRF:Con01_RFIn03:Power
 #### TC-INT-11：多路真空超标，取最差值
 
 **操作步骤：**
-1. 将 `RFQ:Vac2=3e-5`，`RFQ:Vac6=8e-5`
+1. 将 `RFQ:Vac2=6e-5`，`RFQ:Vac6=8e-5`（阈值 `5e-5`）
 
 **验证点：**
 - `is_vacuum_ok()` 返回 False，worst_pv 为 `RFQ:Vac6`，worst_value ≈ 8e-5
-- 恢复时，仅将 Vac6 降回正常不够（Vac2 仍超阈值），需要两路都恢复
+- 恢复时，仅将 Vac6 降回正常不够（Vac2 仍超阈值），需要两路都恢复到阈值以下
 
 ---
 
@@ -368,9 +372,9 @@ caproto-get RFQ:LLRF:Con01_RFIn03:Power
 |------|------|---------|
 | E-01 | `AutoC_PowerTargets` 全为 0 | 控制器检测到无有效目标，进入 ERROR 或不启动，日志报错 |
 | E-02 | `pulse_start > pulse_end` | 展宽时立即判定完成，不循环 |
-| E-03 | `pulse_step = 0` | 避免死循环，日志报错或使用默认值 |
+| E-03 | `pulse_step = 0` | 当前实现不会自动修正该参数；测试应验证系统不崩溃并记录风险（建议后续增加参数校验） |
 | E-04 | `max_faults = 0` | 首次故障即进入 ERROR |
-| E-05 | 所有 PV 读取失败 | 全部使用 config.yaml 默认值，系统正常启动 |
+| E-05 | 所有 PV 读取失败 | 关键 PV（如 power_targets/init_drive）读取失败时初始化失败并进入 ERROR |
 
 ### 4.2 运行时参数变更
 
@@ -505,7 +509,7 @@ block_rf_on = pvproperty(value=0, dtype=int, name='RFQ:SIM:BlockRFOn')
 - [ ] U-F 系列（FaultHandler，8 项）
 - [ ] U-V 系列（VacuumChecker，6 项）
 - [ ] U-R 系列（reset() 逻辑，4 项）
-- [ ] U-C 系列（Config 回退逻辑，4 项）
+- [ ] U-C 系列（Config 访问与 reload 逻辑，4 项）
 
 ### 集成测试
 
@@ -513,7 +517,7 @@ block_rf_on = pvproperty(value=0, dtype=int, name='RFQ:SIM:BlockRFOn')
 - [ ] TC-INT-02：CW 模式
 - [ ] TC-INT-03：调功率中暂停/恢复
 - [ ] TC-INT-04：展脉宽中暂停/恢复
-- [ ] TC-INT-05：用户停止与重启
+- [ ] TC-INT-05：用户暂停并复位
 - [ ] TC-INT-06：Arc 故障自动恢复
 - [ ] TC-INT-07：VacInterlock 故障自动恢复
 - [ ] TC-INT-08：故障次数超限进入 ERROR

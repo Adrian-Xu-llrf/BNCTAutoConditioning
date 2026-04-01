@@ -67,7 +67,7 @@ class RFQSimIOC(PVGroup):
     arc_status_rd = pvproperty(
         value=1, dtype=int,
         name='RFQ:LLRF:Con01:ArcStatus_Rd',
-        doc='弧光状态（1=正常，0=故障）',
+        doc='打火状态（1=正常，0=故障）',
     )
     interlock_status_rd = pvproperty(
         value=1, dtype=int,
@@ -252,13 +252,25 @@ class RFQSimIOC(PVGroup):
     trigger_arc = pvproperty(
         value=0, dtype=int,
         name='RFQ:SIM:TriggerArc',
-        doc='写 1 → 触发弧光故障（自动清零）',
+        doc='写 1 → 触发打火故障（自动清零）',
     )
     trigger_interlock = pvproperty(
         value=0, dtype=int,
         name='RFQ:SIM:TriggerInterlock',
         doc='写 1 → 触发联锁故障（自动清零）',
     )
+    block_rf_on = pvproperty(
+        value=0, dtype=int,
+        name='RFQ:SIM:BlockRFOn',
+        doc='写 1 → 拦截 rf_on=1（保持RF关闭）',
+    )
+
+    @rf_on.putter
+    async def rf_on(self, instance, value):
+        """可选拦截 RF 启动：block_rf_on=1 时，rf_on 写 1 将被拒绝并保持 0。"""
+        if int(value) == 1 and int(self.block_rf_on.value) == 1:
+            return 0
+        return int(value)
 
     # ==================== 4.1 功率仿真 (startup 钩子) ====================
 
@@ -306,7 +318,7 @@ class RFQSimIOC(PVGroup):
 
     @trigger_arc.putter
     async def trigger_arc(self, instance, value):
-        """触发弧光故障: arc_status_rd→0, rf_on→0, drive→0, power→0，PV 自动清零"""
+        """触发打火故障: arc_status_rd→0, rf_on→0, drive→0, power→0，PV 自动清零"""
         if value == 1:
             await self.arc_status_rd.write(0)
             await self.rf_on.write(0)

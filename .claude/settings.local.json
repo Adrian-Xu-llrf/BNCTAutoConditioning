@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/integration/test_happy_path.py -v -s --timeout=300)"
+    ]
+  }
+}

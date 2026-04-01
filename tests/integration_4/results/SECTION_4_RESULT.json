@@ -1,0 +1,201 @@
+{
+  "timestamp": "2026-03-31T21:09:52",
+  "python": "3.12.2",
+  "cases": [
+    {
+      "id": "E-01",
+      "name": "AutoC_PowerTargets 全为 0",
+      "output": {
+        "status_timeline": [
+          "IDLE",
+          "INITIALIZING",
+          "ERROR"
+        ],
+        "start_after_error": 0,
+        "error_log_present": true
+      },
+      "checks": {
+        "idle_ready": true,
+        "entered_error_or_not_started": true,
+        "start_cleared": true,
+        "error_log_present": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "E-02",
+      "name": "pulse_start > pulse_end",
+      "output": {
+        "status_timeline": [
+          "ERROR",
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "COMPLETED"
+        ],
+        "pulse_time_after_s": 0.12,
+        "has_no_expand_write": true,
+        "has_reached_log": true
+      },
+      "checks": {
+        "idle_ready": true,
+        "completed_without_looping": true,
+        "pulse_time_kept_at_start": true,
+        "no_pulse_expand_write": true,
+        "reached_target_log_present": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "E-03",
+      "name": "pulse_step = 0",
+      "output": {
+        "status_timeline": [
+          "COMPLETED",
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER"
+        ],
+        "pulse_before_s": 0.1,
+        "pulse_after_s": 0.1,
+        "final_status": "ADJUSTING_POWER",
+        "controller_alive": true
+      },
+      "checks": {
+        "idle_ready": true,
+        "entered_active_states": true,
+        "controller_not_crashed": true,
+        "not_enter_error": true,
+        "no_progress_risk_observed": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "E-04",
+      "name": "max_faults = 0",
+      "output": {
+        "status_timeline": [
+          "INITIALIZING",
+          "IDLE",
+          "INITIALIZING",
+          "ADJUSTING_POWER",
+          "ERROR"
+        ],
+        "rf_on_in_error": 0
+      },
+      "checks": {
+        "idle_ready": true,
+        "entered_adjusting": true,
+        "first_fault_enters_error": true,
+        "rf_off_in_error": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "E-05",
+      "name": "关键 PV 读取失败",
+      "output": {
+        "status_timeline": [
+          "INITIALIZING",
+          "STOPPED",
+          "IDLE",
+          "INITIALIZING",
+          "ERROR"
+        ],
+        "critical_fail_log_present": true
+      },
+      "checks": {
+        "idle_ready": true,
+        "entered_error": true,
+        "critical_pv_read_fail_log_present": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "E-06",
+      "name": "PAUSED 期间修改 AutoC_PulseEnd",
+      "output": {
+        "status_timeline": [
+          "ADJUSTING_POWER",
+          "PAUSED",
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "PAUSED",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE"
+        ],
+        "pulse_when_paused_s": 0.1,
+        "pulse_after_resume_s": 0.13
+      },
+      "checks": {
+        "idle_ready": true,
+        "entered_expanding_before_pause": true,
+        "paused_successfully": true,
+        "resume_uses_new_pulse_end": true,
+        "pulse_after_resume_gt_old_end": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "E-07",
+      "name": "PAUSED 期间修改 AutoC_PowerTargets",
+      "output": {
+        "status_timeline": [
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "IDLE",
+          "INITIALIZING",
+          "ADJUSTING_POWER",
+          "PAUSED",
+          "ADJUSTING_POWER"
+        ],
+        "target_before_pause": 30.0,
+        "target_after_resume": 15.0
+      },
+      "checks": {
+        "idle_ready": true,
+        "entered_adjusting_before_pause": true,
+        "paused_successfully": true,
+        "new_targets_applied_on_resume": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "E-08",
+      "name": "超长中文状态字符串截断",
+      "output": {
+        "input_len_chars": 120,
+        "output_text": "状态异常状态异常状态异常状",
+        "output_len_chars": 13,
+        "output_len_bytes": 39
+      },
+      "checks": {
+        "valid_utf8_after_truncate": true,
+        "bytes_within_limit": true,
+        "no_replacement_char": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "E-09",
+      "name": "中英文混合长字符串截断",
+      "output": {
+        "input_len_chars": 108,
+        "output_text": "Status状态混合-0123456789-异常告",
+        "output_len_chars": 25,
+        "output_len_bytes": 39
+      },
+      "checks": {
+        "valid_utf8_after_truncate": true,
+        "bytes_within_limit": true,
+        "no_replacement_char": true
+      },
+      "conclusion": "通过"
+    }
+  ]
+}

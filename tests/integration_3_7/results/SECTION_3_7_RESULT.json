@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-03-31T20:53:00",
+  "python": "3.12.2",
+  "cases": [
+    {
+      "id": "TC-INT-13",
+      "name": "第2段目标功率已满足时跳过调功率",
+      "output": {
+        "status_timeline": [
+          "IDLE",
+          "INITIALIZING",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER"
+        ],
+        "target_now": 30.0,
+        "drive_adjust_count_in_second_segment": 0,
+        "has_power_ok_log": true,
+        "has_direct_expand_log": true
+      },
+      "checks": {
+        "idle_ready": true,
+        "switched_to_second_target_log": true,
+        "switched_to_third_target_log": true,
+        "target_progressed_to_30_by_pv": true,
+        "no_drive_adjust_while_second_target_already_satisfied": true,
+        "second_target_directly_returns_to_expanding": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "TC-INT-14",
+      "name": "脉宽已在 pulse_end 时跳过展宽",
+      "output": {
+        "status_timeline": [
+          "ADJUSTING_POWER",
+          "PAUSED",
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER"
+        ],
+        "pulse_final_s": 0.11,
+        "pulse_min_s": 0.1,
+        "pulse_max_s": 0.11,
+        "has_reached_log": true,
+        "has_expand_write_log": false
+      },
+      "checks": {
+        "idle_ready": true,
+        "switched_to_second_target": true,
+        "pulse_kept_at_pulse_end": true,
+        "expand_immediately_marked_complete": true,
+        "no_pulse_expand_write": true
+      },
+      "conclusion": "通过"
+    }
+  ]
+}

@@ -1,0 +1,498 @@
+{
+  "timestamp": "2026-03-31T22:07:29",
+  "python": "3.12.2",
+  "cases": [
+    {
+      "id": "S-5.1",
+      "name": "长时间运行测试（10次完整循环）",
+      "output": {
+        "status_timeline": [
+          "IDLE",
+          "INITIALIZING",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "COMPLETED",
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "COMPLETED",
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "COMPLETED",
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "COMPLETED",
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "COMPLETED",
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "COMPLETED",
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "COMPLETED",
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "COMPLETED",
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "COMPLETED",
+          "IDLE",
+          "INITIALIZING",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "EXPANDING_PULSE",
+          "COMPLETED",
+          "IDLE"
+        ],
+        "completed_cycles": 10,
+        "completion_log_seen": 10,
+        "cycle_metrics": [
+          {
+            "rss_mb": 44.25,
+            "num_threads": 15,
+            "cycle": 1,
+            "completed": true,
+            "start_cleared": true,
+            "completion_log_seen": true
+          },
+          {
+            "rss_mb": 44.36,
+            "num_threads": 15,
+            "cycle": 2,
+            "completed": true,
+            "start_cleared": true,
+            "completion_log_seen": true
+          },
+          {
+            "rss_mb": 44.45,
+            "num_threads": 15,
+            "cycle": 3,
+            "completed": true,
+            "start_cleared": true,
+            "completion_log_seen": true
+          },
+          {
+            "rss_mb": 44.5,
+            "num_threads": 15,
+            "cycle": 4,
+            "completed": true,
+            "start_cleared": true,
+            "completion_log_seen": true
+          },
+          {
+            "rss_mb": 44.53,
+            "num_threads": 15,
+            "cycle": 5,
+            "completed": true,
+            "start_cleared": true,
+            "completion_log_seen": true
+          },
+          {
+            "rss_mb": 44.61,
+            "num_threads": 15,
+            "cycle": 6,
+            "completed": true,
+            "start_cleared": true,
+            "completion_log_seen": true
+          },
+          {
+            "rss_mb": 44.64,
+            "num_threads": 15,
+            "cycle": 7,
+            "completed": true,
+            "start_cleared": true,
+            "completion_log_seen": true
+          },
+          {
+            "rss_mb": 44.69,
+            "num_threads": 15,
+            "cycle": 8,
+            "completed": true,
+            "start_cleared": true,
+            "completion_log_seen": true
+          },
+          {
+            "rss_mb": 44.72,
+            "num_threads": 15,
+            "cycle": 9,
+            "completed": true,
+            "start_cleared": true,
+            "completion_log_seen": true
+          },
+          {
+            "rss_mb": 44.75,
+            "num_threads": 15,
+            "cycle": 10,
+            "completed": true,
+            "start_cleared": true,
+            "completion_log_seen": true
+          }
+        ],
+        "rss_growth_mb": 0.5,
+        "thread_delta": 0
+      },
+      "checks": {
+        "idle_ready": true,
+        "all_10_cycles_completed": true,
+        "memory_growth_within_80mb": true,
+        "thread_delta_within_2": true,
+        "completion_log_seen_in_cycles": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "S-5.2",
+      "name": "故障-恢复循环压力测试（20次）",
+      "output": {
+        "status_timeline": [
+          "IDLE",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING",
+          "EXPANDING_PULSE",
+          "ADJUSTING_POWER",
+          "INITIALIZING"
+        ],
+        "recovered_count": 20,
+        "pulse_drop_count": 20,
+        "fault_count_logs_found": 20,
+        "fault_count_last": 39,
+        "final_status": "EXPANDING_PULSE",
+        "per_fault": [
+          {
+            "index": 1,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 2,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 3,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 4,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 5,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 6,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 7,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 8,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 9,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 10,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 11,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 12,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 13,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 14,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 15,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 16,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 17,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 18,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 19,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          },
+          {
+            "index": 20,
+            "ready_for_inject": true,
+            "arc_to_0": true,
+            "recovered": true,
+            "stable_after_recovery": true,
+            "fault_done_log": true,
+            "pulse_before_s": 0.11,
+            "pulse_after_s": 0.1
+          }
+        ]
+      },
+      "checks": {
+        "idle_ready": true,
+        "entered_active_before_injection": true,
+        "all_20_faults_recovered": true,
+        "fault_count_monotonic": true,
+        "pulse_drop_observed": true,
+        "controller_still_running": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "S-5.3",
+      "name": "并发故障注入测试",
+      "output": {
+        "status_timeline": [
+          "EXPANDING_PULSE",
+          "IDLE",
+          "INITIALIZING",
+          "ADJUSTING_POWER",
+          "INITIALIZING"
+        ],
+        "arc_fault_logs": 1,
+        "vac_fault_logs": 1,
+        "final_status": "INITIALIZING"
+      },
+      "checks": {
+        "idle_ready": true,
+        "entered_active_before_injection": true,
+        "recovered_after_concurrent_injection": true,
+        "no_deadlock_or_error": true,
+        "both_fault_callbacks_seen": true
+      },
+      "conclusion": "通过"
+    },
+    {
+      "id": "S-5.4",
+      "name": "日志完整性验证",
+      "output": {
+        "controller_log_size_bytes": 117189
+      },
+      "checks": {
+        "state_transition_logs": true,
+        "rf_startup_logs": true,
+        "power_adjust_logs": true,
+        "fault_trigger_logs": true,
+        "fault_recovery_step_logs": true,
+        "pulse_expand_logs": true,
+        "completion_summary_logs": true
+      },
+      "conclusion": "通过"
+    }
+  ]
+}
