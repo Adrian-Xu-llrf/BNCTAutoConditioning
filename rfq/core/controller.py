@@ -215,12 +215,21 @@ class RFQController:
             else:
                 logger.warning("功率目标列表为空，无法恢复目标功率PV")
 
-            if self.original_pulse_start is not None:
+            # 从PV重新读取初始脉宽（用户可能在运行中修改了AutoC_PulseStart）
+            pulse_start_from_pv = self._get_pv('control.pulse_start')
+            if pulse_start_from_pv is not None:
+                self.pulse_start = pulse_start_from_pv
+                self.original_pulse_start = pulse_start_from_pv
+                pulse_time_s = float(self.pulse_start) / 1000.0
+                self._put_pv('rf.pulse_time', pulse_time_s)
+                self._put_pv('control.current_pulse', self.pulse_start)
+                logger.info(f"手动Reset：脉宽恢复至PV设定值 {self.pulse_start:.1f}ms")
+            elif self.original_pulse_start is not None:
                 self.pulse_start = self.original_pulse_start
                 pulse_time_s = float(self.pulse_start) / 1000.0
                 self._put_pv('rf.pulse_time', pulse_time_s)
                 self._put_pv('control.current_pulse', self.pulse_start)
-                logger.info(f"手动Reset：脉宽恢复至原始初始值 {self.pulse_start:.1f}ms")
+                logger.info(f"手动Reset：PV读取失败，使用缓存初始值 {self.pulse_start:.1f}ms")
             else:
                 logger.warning("脉宽参数未初始化，等待下次初始化时从PV加载")
         else:
