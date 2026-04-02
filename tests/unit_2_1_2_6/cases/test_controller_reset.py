@@ -12,6 +12,7 @@ class DummyConfig:
             "rf_startup": {"max_retry": 3, "retry_interval": 1},
         }
         self._pvs = {
+            "control.start": "PV:START",
             "control.current_target_power": "PV:CURRENT_TARGET",
             "rf.pulse_time": "PV:PULSE_TIME",
             "control.current_pulse": "PV:CURRENT_PULSE",
@@ -137,6 +138,7 @@ def test_u_r_02_auto_reset_keep_faults_and_drop_pulse(monkeypatch):
     c.target_index = 1
     c.original_pulse_start = 100.0
     c.pulse_start = 140.0
+    c.pv_manager.get_values["PV:PULSE_TIME"] = 0.140  # 当前实际脉宽 140ms
     c.fault_handler.fault_count = 3
     c.fault_handler.fault_exceeded = False
 
@@ -153,10 +155,30 @@ def test_u_r_03_pulse_start_floor_is_original(monkeypatch):
     c.original_pulse_start = 100.0
     c.pulse_start = 105.0
     c.pv_manager.get_values["PV:PULSE_DROP"] = 20.0
+    c.pv_manager.get_values["PV:PULSE_TIME"] = 0.105  # 当前实际脉宽 105ms
 
     c.reset(clear_faults=False)
 
     assert c.pulse_start == 100.0
+
+
+def test_u_r_05_trip_during_expansion_uses_actual_pulse(monkeypatch):
+    """展脉宽过程中Trip：pulse_start未更新，但rf.pulse_time是当前展到的值，
+    回退应基于rf.pulse_time而非pulse_start"""
+    c = _build_controller(monkeypatch)
+    c.power_targets = [10.0, 20.0]
+    c.target_index = 0
+    c.original_pulse_start = 50.0
+    c.pulse_start = 50.0  # 展脉宽过程中未更新，仍是展脉宽前的值
+    c.pv_manager.get_values["PV:PULSE_TIME"] = 0.200  # 实际已展到 200ms
+    c.pv_manager.get_values["PV:PULSE_DROP"] = 20.0
+    c.fault_handler.fault_count = 1
+
+    c.reset(clear_faults=False)
+
+    # 应从200ms回退20ms = 180ms，而不是从50ms计算
+    assert c.pulse_start == 180.0
+    assert c.target_index == 0  # 保持当前功率目标
 
 
 def test_u_r_04_reset_rebuilds_subcontrollers(monkeypatch):

@@ -227,15 +227,18 @@ class RFQController:
             # ---- 自动恢复（Trip后）：保持当前功率目标，脉宽下降 pulse_drop ----
             self._is_auto_recovery = True  # 标记自动恢复，后续加载参数时保留脉宽
             if self.pulse_start is not None and self.original_pulse_start is not None:
+                # 从rf.pulse_time读取当前实际脉宽，而非self.pulse_start
+                # （展脉宽过程中pulse_start不会更新，用它计算回退会不准）
+                current_pulse_ms = self._get_pv('rf.pulse_time') * 1000
                 pulse_drop_pv = self.config.get_pv('control.pulse_drop')
                 pulse_drop_val = self.pv_manager.get(pulse_drop_pv)
                 pulse_drop = float(pulse_drop_val) if pulse_drop_val is not None else 20.0
-                new_pulse_start = self.pulse_start - pulse_drop
+                new_pulse_start = current_pulse_ms - pulse_drop
                 if new_pulse_start < self.original_pulse_start:
                     new_pulse_start = self.original_pulse_start
                     logger.warning(f"Trip后脉宽已降至初始值 {new_pulse_start:.1f}ms，无法再降")
                 else:
-                    logger.info(f"Trip后脉宽下降 {pulse_drop:.1f}ms: {self.pulse_start:.1f} -> {new_pulse_start:.1f}ms")
+                    logger.info(f"Trip后脉宽下降 {pulse_drop:.1f}ms: {current_pulse_ms:.1f} -> {new_pulse_start:.1f}ms")
                 self.pulse_start = new_pulse_start
                 pulse_time_s = float(self.pulse_start) / 1000.0
                 self._put_pv('rf.pulse_time', pulse_time_s)
