@@ -740,11 +740,15 @@ class RFQController:
         if start_signal == 1:
             # 恢复运行前，重新加载所有控制参数（支持热修改）
             logger.info("检测到恢复信号，重新加载控制参数...")
+            # 保存当前脉宽，_load_parameters会从PV重新读取初始值导致重置
+            saved_pulse_start = self.pulse_start
             if not self._load_parameters():
                 logger.error("参数重新加载失败")
                 self.error_message = "参数重新加载失败"
                 self.set_state(RFQState.ERROR)
                 return
+            self.pulse_start = saved_pulse_start
+            self._put_pv('control.current_pulse', self.pulse_start)
 
             if self.state_before_pause:
                 logger.info(f"恢复运行，返回到状态: {self.state_before_pause}")
