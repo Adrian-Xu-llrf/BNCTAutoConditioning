@@ -703,15 +703,19 @@ class RFQController:
                 # 先等待，等待结束后再恢复初始脉宽（在_handle_adjusting_power中执行）
                 self._need_reset_pulse = True
                 logger.info(f"脉宽已达目标，将等待 {self.wait_before_expand:.1f} 秒后恢复初始脉宽，准备下一功率目标展脉宽")
+                
 
                 self._wait_before_power = True
                 self.set_state(RFQState.ADJUSTING_POWER)
+
             else:
                 logger.debug("所有功率目标已完成，老练完成")
                 self.set_state(RFQState.COMPLETED)
+
         else:
             # 脉宽未达目标，继续下一次展宽
             self._put_pv('control.current_pulse', self._get_pv('rf.pulse_time') * 1000)
+            self.state_enter_time = time.time()
 
         self._sleep_loop()
 
