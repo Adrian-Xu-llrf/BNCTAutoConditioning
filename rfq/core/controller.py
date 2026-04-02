@@ -57,6 +57,7 @@ class RFQController:
         self.pulse_step = None
         self._wait_before_power = False  # 展脉宽后进入调功率时需要等待标志
         self._need_reset_pulse = False   # 等待结束后需要恢复初始脉宽的标志
+        self._is_auto_recovery = False    # 自动故障恢复标志，Trip后保留脉宽
 
         # 多目标功率列表（来自 AutoC_PowerTargets waveform PV）
         self.power_targets = []
@@ -224,6 +225,7 @@ class RFQController:
                 logger.warning("脉宽参数未初始化，等待下次初始化时从PV加载")
         else:
             # ---- 自动恢复（Trip后）：保持当前功率目标，脉宽下降 pulse_drop ----
+            self._is_auto_recovery = True  # 标记自动恢复，后续加载参数时保留脉宽
             if self.pulse_start is not None and self.original_pulse_start is not None:
                 pulse_drop_pv = self.config.get_pv('control.pulse_drop')
                 pulse_drop_val = self.pv_manager.get(pulse_drop_pv)
@@ -302,7 +304,10 @@ class RFQController:
 
         # 读取脉冲参数
         logger.debug("读取脉冲参数PVs...")
-        self.pulse_start = self._get_pv('control.pulse_start')
+        if self._is_auto_recovery and self.pulse_start is not None:
+            logger.info(f"自动恢复模式：保留当前脉宽 {self.pulse_start}ms，不从PV重新加载")
+        else:
+            self.pulse_start = self._get_pv('control.pulse_start')
         self.pulse_end = self._get_pv('control.pulse_end')
 
         self.pulse_step_pv = self.config.get_pv('control.pulse_step')
@@ -534,6 +539,7 @@ class RFQController:
 
             # 初始化成功，转到功率调节状态
             logger.info("初始化完成，进入功率调节状态")
+            self._is_auto_recovery = False  # 清除自动恢复标志
             self.set_state(RFQState.ADJUSTING_POWER)
 
         except Exception as e:
