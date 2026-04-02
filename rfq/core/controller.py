@@ -697,8 +697,20 @@ class RFQController:
             self._put_pv('control.current_pulse', self.pulse_start)
             # 脉宽已达目标
 
+            # 展脉宽后功率验证：脉宽增大可能导致功率下降，需重新检查
+            current_power = self._get_pv('rf.power')
+            margin_small = self._get_pv('control.margin_small')
+            if (current_power is not None and margin_small is not None
+                    and abs(current_power - self.target_power) > margin_small):
+                logger.warning(
+                    f"展脉宽后功率偏离: 当前{current_power:.1f}kW, "
+                    f"目标{self.target_power:.1f}kW, 偏差>{margin_small:.1f}kW，重新调节功率"
+                )
+                self.power_controller.reset_iteration_count()
+                self.set_state(RFQState.ADJUSTING_POWER)
+
             # 多目标模式：还有下一个目标则切换，否则完成
-            if self.power_targets and self.target_index < len(self.power_targets) - 1:
+            elif self.power_targets and self.target_index < len(self.power_targets) - 1:
                 self.target_index += 1
                 next_target = self.power_targets[self.target_index]
                 self._put_pv('control.current_target_power', next_target)
