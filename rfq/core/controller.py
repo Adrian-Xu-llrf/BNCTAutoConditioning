@@ -459,8 +459,12 @@ class RFQController:
             rf_on = self._get_pv('rf.rf_on')
             logger.debug(f"检查RF状态: rf_on={rf_on}")
             if rf_on != 1:
-                # RF关闭：回调已计数，检查是否超限
-                logger.warning("检测到RF已关闭（故障回调已计数）")
+                fault_count = self.fault_handler.get_fault_count()
+                last_fault = self.fault_handler.get_last_fault_type()
+                logger.warning(
+                    f"检测到RF已关闭 rf_on={rf_on}, "
+                    f"当前故障计数={fault_count}, 最近故障类型={last_fault}"
+                )
                 if self.fault_handler.is_fault_exceeded():
                     logger.error("故障次数超限，进入ERROR状态")
                     self.error_message = "故障次数超限"

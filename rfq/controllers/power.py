@@ -36,7 +36,7 @@ class PowerController:
             current_drive_pv: 当前使用的Drive PV (脉冲或CW)
             target_power: 目标功率 (kW)
 
-        Returns:fd
+        Returns:
             tuple: (bool, str)
                 - 是否达标
                 - 状态消息
