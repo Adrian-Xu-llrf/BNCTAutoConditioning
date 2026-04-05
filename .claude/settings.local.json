@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -m pytest tests/integration/test_happy_path.py -v -s --timeout=300)"
+      "Bash(python -m pytest tests/integration/test_happy_path.py -v -s --timeout=300)",
+      "Bash(curl -sL \"https://linux.do/t/topic/1873901\")",
+      "Bash(curl -sL -v \"https://linux.do/t/topic/1873901\")"
     ]
   }
 }
