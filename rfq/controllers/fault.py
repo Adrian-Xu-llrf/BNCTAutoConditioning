@@ -35,7 +35,7 @@ class FaultHandler:
     FAULT_NAMES = ['Arc', 'VacInterlock', 'Interlock2', 'DI4']
 
     RESET_PV_KEYS = [
-        ('VacReset',           'fault.VacReset',           4.0, 2.0),
+        ('VacReset',           'fault.VacReset',           2.0, 2.0),
         ('ResetInterlock',     'fault.reset_interlock',    1.0, 1.0),
         ('ResetPWFaultStat1',  'fault.ResetPWFaultStat1',  1.0, 1.0),
         ('ResetPWFaultStat2',  'fault.ResetPWFaultStat2',  1.0, 1.0),
