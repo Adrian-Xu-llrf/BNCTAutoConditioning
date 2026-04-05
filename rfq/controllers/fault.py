@@ -22,8 +22,6 @@
 import time
 import logging
 import threading
-import epics
-from ..utils.pv_manager import PVManager
 
 logger = logging.getLogger('RFQ.FaultHandler')
 
@@ -41,26 +39,26 @@ class FaultHandler:
         ('ResetPWFaultStat2',  'fault.ResetPWFaultStat2',  1.0, 1.0),
     ]
 
-    def __init__(self, config):
+    def __init__(self, config, pv_manager):
         """
         初始化故障处理器
 
         Args:
             config: 配置对象
+            pv_manager: PVManager单例实例
         """
         self.config = config
-        self.pv_manager = PVManager()
+        self.pv_manager = pv_manager
 
         self.fault_count = 0
         self.fault_exceeded = False
         self.lock = threading.Lock()
         self.last_fault_type = None
 
-        self._pv_objects = []
         for pv_key in self.FAULT_PV_KEYS:
-            pv_obj = epics.PV(self.config.get_pv(pv_key))
-            pv_obj.add_callback(self._make_callback(pv_key))
-            self._pv_objects.append(pv_obj)
+            pv_obj = self.pv_manager.get_pv_object(pv_key)
+            if pv_obj:
+                pv_obj.add_callback(self._make_callback(pv_key))
 
         logger.info("故障监听器已启动 (arc / VacInterlock / interlock2 / di4)")
 
@@ -87,20 +85,21 @@ class FaultHandler:
 
         return callback
 
-    def pulse_reset(self, pv_name, high_time=1.0, settle_time=1.0):
+    def pulse_reset(self, pv_key, high_time=1.0, settle_time=1.0):
         """
         脉冲复位：置1 → 等待 → 置0 → 等待
 
         Args:
-            pv_name: PV名称
+            pv_key: PV逻辑键
             high_time: 高电平保持时间(秒)
             settle_time: 回落后等待时间(秒)
         """
+        pv_name = self.pv_manager.get_pv_name(pv_key)
         logger.info(f"  {pv_name} → 1")
-        self.pv_manager.put(pv_name, 1)
+        self.pv_manager.put(pv_key, 1)
         time.sleep(high_time)
         logger.info(f"  {pv_name} → 0")
-        self.pv_manager.put(pv_name, 0)
+        self.pv_manager.put(pv_key, 0)
         time.sleep(settle_time)
 
     def reset_all_faults(self):
@@ -111,9 +110,8 @@ class FaultHandler:
         """
         logger.info("开始执行全部故障复位...")
         for name, pv_key, high_t, settle_t in self.RESET_PV_KEYS:
-            pv_name = self.config.get_pv(pv_key)
             logger.info(f"[{name}]")
-            self.pulse_reset(pv_name, high_t, settle_t)
+            self.pulse_reset(pv_key, high_t, settle_t)
         logger.info("全部故障复位完成")
 
     def check_fault_status(self):
@@ -125,7 +123,7 @@ class FaultHandler:
         """
         all_ok = True
         for pv_key, name in zip(self.FAULT_PV_KEYS, self.FAULT_NAMES):
-            val = self.pv_manager.get(self.config.get_pv(pv_key))
+            val = self.pv_manager.get(pv_key)
             if val == 1:
                 logger.info(f"  {name}: 正常")
             elif val == 0:
@@ -165,7 +163,8 @@ class FaultHandler:
 
     def cleanup(self):
         """清理资源，取消callback"""
-        for pv_obj in self._pv_objects:
-            pv_obj.clear_callbacks()
-        self._pv_objects.clear()
+        for pv_key in self.FAULT_PV_KEYS:
+            pv_obj = self.pv_manager.get_pv_object(pv_key)
+            if pv_obj:
+                pv_obj.clear_callbacks()
         logger.info("故障监听器已停止")

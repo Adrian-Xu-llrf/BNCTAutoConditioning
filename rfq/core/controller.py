@@ -28,14 +28,22 @@ class RFQController:
 
         Args:
             config: 配置对象
+            pv_manager: 可选的PVManager实例（测试注入用）
         """
         self.config = config
-        # 允许注入PVManager便于测试和替换
-        self.pv_manager = pv_manager or PVManager()
-        self.fault_handler = FaultHandler(config)
-        self.vacuum_checker = VacuumChecker(config)
-        self.power_controller = PowerController(config)
-        self.pulse_controller = PulseController(config)
+
+        if pv_manager is not None:
+            self.pv_manager = pv_manager
+        else:
+            PVManager.reset_instance()
+            self.pv_manager = PVManager(config)
+            self._register_all_pvs()
+            logger.info(f"PVManager已注册 {self.pv_manager.get_registered_count()} 个PV")
+
+        self.fault_handler = FaultHandler(config, self.pv_manager)
+        self.vacuum_checker = VacuumChecker(config, self.pv_manager)
+        self.power_controller = PowerController(config, self.pv_manager)
+        self.pulse_controller = PulseController(config, self.pv_manager)
 
         # 状态机相关
         self.current_state = RFQState.IDLE
@@ -113,6 +121,14 @@ class RFQController:
             # status PV只显示状态名称（英文）
             self.update_status(new_state.name)
 
+    def _register_all_pvs(self):
+        """从config.yaml批量注册所有PV"""
+        pv_cfg = self.config.pv
+        self.pv_manager.register_group(pv_cfg.get('rf', {}), 'rf')
+        self.pv_manager.register_group(pv_cfg.get('fault', {}), 'fault')
+        self.pv_manager.register_group(pv_cfg.get('control', {}), 'control')
+        self.pv_manager.register_list(pv_cfg.get('vacuum', []), 'vacuum')
+
     def update_status(self, msg):
         """
         更新状态到EPICS
@@ -122,15 +138,15 @@ class RFQController:
         """
         logger.info(msg)
         safe_msg = self.pv_manager.safe_status(msg)
-        self.pv_manager.put(self.config.get_pv('control.status'), safe_msg)
+        self.pv_manager.put('control.status', safe_msg)
 
     def _get_pv(self, pv_key):
-        """获取PV值的简化方法"""
-        return self.pv_manager.get(self.config.get_pv(pv_key))
+        """通过key获取PV值"""
+        return self.pv_manager.get(pv_key)
 
     def _put_pv(self, pv_key, value):
-        """设置PV值的简化方法"""
-        self.pv_manager.put(self.config.get_pv(pv_key), value)
+        """通过key设置PV值"""
+        self.pv_manager.put(pv_key, value)
 
     def _sleep(self, seconds):
         """统一休眠方法，便于后续性能测试替换或注入"""
@@ -234,8 +250,7 @@ class RFQController:
                 # 从rf.pulse_time读取当前实际脉宽，而非self.pulse_start
                 # （展脉宽过程中pulse_start不会更新，用它计算回退会不准）
                 current_pulse_ms = self._get_pv('rf.pulse_time') * 1000
-                pulse_drop_pv = self.config.get_pv('control.pulse_drop')
-                pulse_drop_val = self.pv_manager.get(pulse_drop_pv)
+                pulse_drop_val = self.pv_manager.get('control.pulse_drop')
                 pulse_drop = float(pulse_drop_val) if pulse_drop_val is not None else 20.0
                 new_pulse_start = current_pulse_ms - pulse_drop
                 if new_pulse_start < self.original_pulse_start:
@@ -289,8 +304,6 @@ class RFQController:
         )
 
         # 读取初始Drive
-        init_drive_pv = self.config.get_pv('control.init_drive')
-        logger.debug(f"读取PV: {init_drive_pv}")
         self.init_drive = self._get_pv('control.init_drive')
         if self.init_drive is None:
             logger.error("无法读取初始Drive PV")
@@ -305,8 +318,7 @@ class RFQController:
             self.pulse_start = self._get_pv('control.pulse_start')
         self.pulse_end = self._get_pv('control.pulse_end')
 
-        self.pulse_step_pv = self.config.get_pv('control.pulse_step')
-        self.pulse_step_val = self.pv_manager.get(self.pulse_step_pv)
+        self.pulse_step_val = self._get_pv('control.pulse_step')
         _default_pulse_step = float(self.config.loop.get('pulse_step', 0.5))
         try:
             self.pulse_step = float(self.pulse_step_val) if self.pulse_step_val is not None else _default_pulse_step
@@ -328,8 +340,7 @@ class RFQController:
 
         self._put_pv('control.current_pulse', self.pulse_start)
 
-        self.wait_time_pv = self.config.get_pv('control.pulse_wait')
-        self.wait_time_val = self.pv_manager.get(self.wait_time_pv)
+        self.wait_time_val = self._get_pv('control.pulse_wait')
         _default_wait = float(self.config.get('loop', 'wait_time_default', default=10.0))
         try:
             self.wait_time = float(self.wait_time_val) if self.wait_time_val is not None else _default_wait
@@ -338,8 +349,7 @@ class RFQController:
             self.wait_time = _default_wait
         logger.info(f"pulse_wait (wait_time): {self.wait_time} s")
 
-        self.wait_before_expand_pv = self.config.get_pv('control.wait_before_expand')
-        self.wait_before_expand_min = self.pv_manager.get(self.wait_before_expand_pv)
+        self.wait_before_expand_min = self._get_pv('control.wait_before_expand')
         self.wait_before_expand_val = self.wait_before_expand_min*60
         _default_wait_expand = float(self.config.get('loop', 'wait_before_expand', default=1.0))
         try:
@@ -364,8 +374,8 @@ class RFQController:
 
         if pulse_cw_value == 1:
             self.is_pulse_mode = True
-            self.current_drive_pv = self.config.get_pv('rf.pulse_drive')
-            logger.debug(f"设置脉冲模式Drive PV: {self.current_drive_pv}")
+            self.current_drive_pv = 'rf.pulse_drive'
+            logger.debug(f"设置脉冲模式Drive PV: {self.pv_manager.get_pv_name('rf.pulse_drive')}")
             self._put_pv('rf.cw_drive', 0)
             pulse_time_s = float(self.pulse_start) / 1000.0
             logger.debug(f"设置初始脉宽: {pulse_time_s}s ({self.pulse_start}ms)")
@@ -373,8 +383,8 @@ class RFQController:
             logger.info(f"脉冲模式: 起始脉宽={self.pulse_start}ms")
         else:
             self.is_pulse_mode = False
-            self.current_drive_pv = self.config.get_pv('rf.cw_drive')
-            logger.debug(f"设置CW模式Drive PV: {self.current_drive_pv}")
+            self.current_drive_pv = 'rf.cw_drive'
+            logger.debug(f"设置CW模式Drive PV: {self.pv_manager.get_pv_name('rf.cw_drive')}")
             self._put_pv('rf.pulse_drive', 0)
             logger.info("连续波模式")
         return True
@@ -388,8 +398,8 @@ class RFQController:
             self._put_pv('rf.rf_on', 1)
             self._sleep(1.0)
 
-            logger.debug(f"启动RF步骤2: 设置初始Drive={self.init_drive} -> {self.current_drive_pv}")
-            self.pv_manager.put(self.current_drive_pv, self.init_drive)
+            logger.debug(f"启动RF步骤2: 设置初始Drive={self.init_drive} -> {self.pv_manager.get_pv_name(self.current_drive_pv)}")
+            self._put_pv(self.current_drive_pv, self.init_drive)
             self._sleep(1.0)
 
             logger.debug("启动RF步骤3: 打开Swee")
@@ -425,8 +435,8 @@ class RFQController:
         """关闭RF系统（不操作sweep和tracking）"""
         logger.debug("开始关闭RF系统")
         if self.current_drive_pv:
-            logger.debug(f"将Drive设为0: {self.current_drive_pv}")
-            self.pv_manager.put(self.current_drive_pv, 0)
+            logger.debug(f"将Drive设为0: {self.pv_manager.get_pv_name(self.current_drive_pv)}")
+            self._put_pv(self.current_drive_pv, 0)
             self._sleep(0.5)
         logger.debug("关闭RF（不操作sweep和tracking）")
         self._put_pv('rf.rf_on', 0)
@@ -516,7 +526,14 @@ class RFQController:
             return
 
         try:
-            # 加载参数
+            pv_ok, failed = self.pv_manager.check_all_connected()
+            if not pv_ok:
+                self.error_message = f"PV连接失败: {failed}"
+                logger.error(f"PV健康检查未通过: {failed}")
+                self.set_state(RFQState.ERROR)
+                return
+            logger.info("PV健康检查通过，所有PV已连接")
+
             logger.debug("步骤1/3: 加载参数")
             if not self._load_parameters():
                 self.error_message = "参数加载失败"

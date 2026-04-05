@@ -8,8 +8,6 @@ class DummyConfig:
 
 
 class FakePV:
-    values = {}
-
     def __init__(self, name):
         self.name = name
         self.callbacks = []
@@ -22,14 +20,32 @@ class FakePV:
         self.cleared = True
         self.callbacks = []
 
-    def get(self):
-        return self.values.get(self.name)
+
+class FakePVManager:
+    def __init__(self, pv_names, initial_values):
+        self._pv_objects = {}
+        self._pv_names = {}
+        self._values = {}
+        for i, pv_name in enumerate(pv_names):
+            key = f"vacuum.{i}"
+            self._pv_objects[key] = FakePV(pv_name)
+            self._pv_names[key] = pv_name
+            self._values[key] = initial_values.get(pv_name)
+
+    def get_pv_object(self, pv_key):
+        return self._pv_objects.get(pv_key)
+
+    def get_pv_name(self, pv_key):
+        return self._pv_names.get(pv_key)
+
+    def get(self, pv_key):
+        return self._values.get(pv_key)
 
 
 def _build_checker(monkeypatch, initial_values, threshold=5e-5):
-    FakePV.values = dict(initial_values)
-    monkeypatch.setattr("rfq.controllers.vacuum.epics.PV", lambda name: FakePV(name))
-    return VacuumChecker(DummyConfig(threshold=threshold))
+    config = DummyConfig(threshold=threshold)
+    pv_mgr = FakePVManager(config.pv['vacuum'], initial_values)
+    return VacuumChecker(config, pv_mgr)
 
 
 def test_u_v_01_fail_safe_without_callbacks(monkeypatch):
@@ -73,7 +89,7 @@ def test_u_v_05_recover_to_normal(monkeypatch):
     vals = {f"PV:VAC{i}": 1e-6 for i in range(1, 9)}
     vals["PV:VAC3"] = 1e-3
     c = _build_checker(monkeypatch, initial_values=vals)
-    c._on_vacuum_change(pvname="PV:VAC3", value=1e-6, pv_name="PV:VAC3")
+    c._on_vacuum_change(pvname="PV:VAC3", value=1e-6, pv_key="vacuum.2")
     ok, worst, _ = c.is_vacuum_ok()
     assert ok is True
     assert worst == 1e-6

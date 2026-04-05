@@ -6,19 +6,6 @@ from rfq.controllers.fault import FaultHandler
 class DummyConfig:
     def __init__(self, max_faults=20):
         self.loop = {"max_faults": max_faults}
-        self._pvs = {
-            "fault.arc": "PV:ARC",
-            "fault.VacInterlock": "PV:VAC_INTERLOCK",
-            "fault.interlock2": "PV:INTERLOCK2",
-            "fault.di4": "PV:DI4",
-            "fault.VacReset": "PV:VAC_RESET",
-            "fault.reset_interlock": "PV:RESET_INTERLOCK",
-            "fault.ResetPWFaultStat1": "PV:RESET_PW1",
-            "fault.ResetPWFaultStat2": "PV:RESET_PW2",
-        }
-
-    def get_pv(self, key):
-        return self._pvs[key]
 
 
 class FakePV:
@@ -39,27 +26,43 @@ class FakePVManager:
     def __init__(self):
         self.put_calls = []
         self.get_map = {}
+        self._pv_objects = {}
 
-    def put(self, pv_name, value):
-        self.put_calls.append((pv_name, value))
+    def put(self, pv_key, value):
+        self.put_calls.append((pv_key, value))
         return True
 
-    def get(self, pv_name):
-        return self.get_map.get(pv_name, 1)
+    def get(self, pv_key):
+        return self.get_map.get(pv_key, 1)
+
+    def get_pv_object(self, pv_key):
+        return self._pv_objects.get(pv_key)
+
+    def get_pv_name(self, pv_key):
+        return f"PV:{pv_key.upper()}"
+
+
+FAULT_PV_KEYS = [
+    'fault.arc',
+    'fault.VacInterlock',
+    'fault.interlock2',
+    'fault.di4',
+]
 
 
 def _build_handler(monkeypatch, max_faults=20):
-    monkeypatch.setattr("rfq.controllers.fault.epics.PV", lambda name: FakePV(name))
-    monkeypatch.setattr("rfq.controllers.fault.time.sleep", lambda _: None)
-    h = FaultHandler(DummyConfig(max_faults=max_faults))
-    h.pv_manager = FakePVManager()
+    pv_mgr = FakePVManager()
+    for key in FAULT_PV_KEYS:
+        pv_mgr._pv_objects[key] = FakePV(key)
+    h = FaultHandler(DummyConfig(max_faults=max_faults), pv_mgr)
     return h
 
 
-def _trigger_callback(h, pv_index, value):
-    pv_obj = h._pv_objects[pv_index]
-    for cb, _ in pv_obj.callbacks:
-        cb(pvname=pv_obj.name, value=value)
+def _trigger_callback(h, key_index, value):
+    key = FAULT_PV_KEYS[key_index]
+    pv_obj = h.pv_manager.get_pv_object(key)
+    for cb, kwargs in pv_obj.callbacks:
+        cb(pvname=pv_obj.name, value=value, pv_key=key)
 
 
 def test_u_f_01_fault_count_accumulates(monkeypatch):
@@ -98,24 +101,24 @@ def test_u_f_05_reset_all_faults_sequence(monkeypatch):
     h.reset_all_faults()
     seq = [pv for pv, _ in h.pv_manager.put_calls]
     assert seq == [
-        "PV:VAC_RESET",
-        "PV:VAC_RESET",
-        "PV:RESET_INTERLOCK",
-        "PV:RESET_INTERLOCK",
-        "PV:RESET_PW1",
-        "PV:RESET_PW1",
-        "PV:RESET_PW2",
-        "PV:RESET_PW2",
+        "fault.VacReset",
+        "fault.VacReset",
+        "fault.reset_interlock",
+        "fault.reset_interlock",
+        "fault.ResetPWFaultStat1",
+        "fault.ResetPWFaultStat1",
+        "fault.ResetPWFaultStat2",
+        "fault.ResetPWFaultStat2",
     ]
 
 
 def test_u_f_06_check_faults_all_ok(monkeypatch):
     h = _build_handler(monkeypatch, max_faults=10)
     h.pv_manager.get_map = {
-        "PV:ARC": 1,
-        "PV:VAC_INTERLOCK": 1,
-        "PV:INTERLOCK2": 1,
-        "PV:DI4": 1,
+        "fault.arc": 1,
+        "fault.VacInterlock": 1,
+        "fault.interlock2": 1,
+        "fault.di4": 1,
     }
     assert h.check_fault_status() is True
 
@@ -123,17 +126,17 @@ def test_u_f_06_check_faults_all_ok(monkeypatch):
 def test_u_f_07_check_faults_still_fault(monkeypatch):
     h = _build_handler(monkeypatch, max_faults=10)
     h.pv_manager.get_map = {
-        "PV:ARC": 0,
-        "PV:VAC_INTERLOCK": 1,
-        "PV:INTERLOCK2": 1,
-        "PV:DI4": 1,
+        "fault.arc": 0,
+        "fault.VacInterlock": 1,
+        "fault.interlock2": 1,
+        "fault.di4": 1,
     }
     assert h.check_fault_status() is False
 
 
 def test_u_f_08_cleanup_clears_callbacks(monkeypatch):
     h = _build_handler(monkeypatch, max_faults=10)
-    pvs = list(h._pv_objects)
+    pvs = [h.pv_manager.get_pv_object(k) for k in FAULT_PV_KEYS]
     assert any(p.callbacks for p in pvs)
     h.cleanup()
     assert all(p.cleared for p in pvs)
