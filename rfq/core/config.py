@@ -4,7 +4,7 @@
 负责从yaml文件加载配置参数
 
 作者: Chengye Xu
-日期: 2025-11
+日期: 2026-03
 """
 
 import yaml

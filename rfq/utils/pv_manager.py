@@ -4,7 +4,7 @@ PV管理模块
 负责EPICS PV的读写操作
 
 作者: Chengye Xu
-日期: 2025-11
+日期: 2026-03
 """
 
 import epics

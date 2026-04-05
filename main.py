@@ -9,7 +9,7 @@ RFQ自动老练系统 - 主程序入口
 3. 通过EPICS设置 AutoC_Start=1 启动老练
 
 作者: Chengye Xu
-日期: 2025-11
+日期: 2026-03
 """
 
 import logging

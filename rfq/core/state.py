@@ -8,7 +8,7 @@ RFQ控制器状态定义
 - 100+: 异常/终止状态
 
 作者: Chengye Xu
-日期: 2025-11
+日期: 2026-03
 """
 
 from enum import Enum

@@ -4,7 +4,7 @@
 负责调节RF功率到目标值
 
 作者: Chengye Xu
-日期: 2025-11
+日期: 2026-03
 """
 
 import logging

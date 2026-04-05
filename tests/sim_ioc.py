@@ -7,7 +7,7 @@ RFQ 仿真 IOC - 基于 caproto
     python tests/sim_ioc.py
 
 作者: Adrian Xu
-日期: 2025-11
+日期: 2026-03
 """
 
 from caproto.server import pvproperty, PVGroup, run, ioc_arg_parser

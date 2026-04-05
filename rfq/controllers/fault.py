@@ -18,7 +18,7 @@ VacInterlock专有复位（需先于其他复位执行）:
   - VacReset: RFQ:Reset
 
 作者: Chengye Xu
-日期: 2025-11
+日期: 2026-03
 """
 
 import time
