@@ -187,11 +187,6 @@ class RFQController:
         if clear_faults:
             self._put_pv('control.start', 0)
 
-        # 保存故障计数（自动恢复时需要跨handler实例保留）
-        if not clear_faults:
-            saved_fault_count = self.fault_handler.get_fault_count()
-            saved_fault_exceeded = self.fault_handler.is_fault_exceeded()
-
         # 清除状态相关变量
         self.error_message = ""
         self.state_before_pause = None
@@ -255,18 +250,6 @@ class RFQController:
                 logger.info(f"更新脉宽PV: {self.pulse_start:.1f}ms")
             else:
                 logger.warning("脉宽参数未初始化，无法执行Trip后脉宽调整")
-
-        # 先清理旧监听器的 callback，再重新初始化
-        self.fault_handler.cleanup()
-        self.vacuum_checker.cleanup()
-        self.fault_handler = FaultHandler(self.config)
-        self.vacuum_checker = VacuumChecker(self.config)
-
-        # 自动恢复时恢复故障计数，使max_faults跨trip累计有效
-        if not clear_faults:
-            with self.fault_handler.lock:
-                self.fault_handler.fault_count = saved_fault_count
-                self.fault_handler.fault_exceeded = saved_fault_exceeded
 
         # 设置状态为IDLE（会更新status PV并记录日志）
         self.set_state(RFQState.IDLE)
@@ -431,7 +414,7 @@ class RFQController:
             # 如果还有重试机会，重置故障并重试
             if attempt < self.max_rf_startup_retries - 1:
                 logger.info(f"正在重置Interlock故障，等待{self.retry_interval}秒后重试...")
-                self.fault_handler._reset_interlock_faults()
+                self.fault_handler.reset_all_faults()
                 self._sleep(self.retry_interval)
             else:
                 logger.error(f"RF启动失败：已达到最大重试次数({self.max_rf_startup_retries})")
@@ -476,15 +459,16 @@ class RFQController:
             rf_on = self._get_pv('rf.rf_on')
             logger.debug(f"检查RF状态: rf_on={rf_on}")
             if rf_on != 1:
-                # RF关闭：先记录故障，再判断是否超限
-                logger.warning("检测到RF已关闭，记录故障")
-                self.fault_handler.record_fault()
+                # RF关闭：回调已计数，检查是否超限
+                logger.warning("检测到RF已关闭（故障回调已计数）")
                 if self.fault_handler.is_fault_exceeded():
-                    logger.error("RF故障次数超限，进入ERROR状态")
-                    self.error_message = "RF故障次数超限"
+                    logger.error("故障次数超限，进入ERROR状态")
+                    self.error_message = "故障次数超限"
                     return RFQState.ERROR
                 else:
-                    # 故障未超限：保留计数并重置到IDLE准备重启
+                    # 故障未超限：执行统一复位，然后重置到IDLE准备重启
+                    self.fault_handler.reset_all_faults()
+                    self.fault_handler.check_fault_status()
                     self.reset(clear_faults=False)
                     return RFQState.IDLE
 

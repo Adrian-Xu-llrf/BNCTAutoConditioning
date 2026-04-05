@@ -56,40 +56,46 @@ def _build_handler(monkeypatch, max_faults=20):
     return h
 
 
+def _trigger_callback(h, pv_index, value):
+    pv_obj = h._pv_objects[pv_index]
+    for cb, _ in pv_obj.callbacks:
+        cb(pvname=pv_obj.name, value=value)
+
+
 def test_u_f_01_fault_count_accumulates(monkeypatch):
     h = _build_handler(monkeypatch, max_faults=10)
-    h.record_fault()
-    h.record_fault()
-    h.record_fault()
+    _trigger_callback(h, 0, 0)
+    _trigger_callback(h, 1, 0)
+    _trigger_callback(h, 2, 0)
     assert h.get_fault_count() == 3
 
 
 def test_u_f_02_fault_exceeded_at_limit(monkeypatch):
     h = _build_handler(monkeypatch, max_faults=3)
-    for _ in range(3):
-        h.record_fault()
+    for i in range(3):
+        _trigger_callback(h, 0, 0)
     assert h.is_fault_exceeded() is True
 
 
 def test_u_f_03_not_exceeded_below_limit(monkeypatch):
     h = _build_handler(monkeypatch, max_faults=5)
-    for _ in range(4):
-        h.record_fault()
+    for i in range(4):
+        _trigger_callback(h, 0, 0)
     assert h.is_fault_exceeded() is False
 
 
 def test_u_f_04_reset_fault_count(monkeypatch):
     h = _build_handler(monkeypatch, max_faults=5)
-    h.record_fault()
-    h.record_fault()
+    _trigger_callback(h, 0, 0)
+    _trigger_callback(h, 0, 0)
     h.reset_fault_count()
     assert h.get_fault_count() == 0
     assert h.is_fault_exceeded() is False
 
 
-def test_u_f_05_recovery_order(monkeypatch):
+def test_u_f_05_reset_all_faults_sequence(monkeypatch):
     h = _build_handler(monkeypatch, max_faults=10)
-    h._handle_fault("Arc")
+    h.reset_all_faults()
     seq = [pv for pv, _ in h.pv_manager.put_calls]
     assert seq == [
         "PV:VAC_RESET",
@@ -103,7 +109,7 @@ def test_u_f_05_recovery_order(monkeypatch):
     ]
 
 
-def test_u_f_06_check_faults_cleared(monkeypatch):
+def test_u_f_06_check_faults_all_ok(monkeypatch):
     h = _build_handler(monkeypatch, max_faults=10)
     h.pv_manager.get_map = {
         "PV:ARC": 1,
@@ -111,11 +117,10 @@ def test_u_f_06_check_faults_cleared(monkeypatch):
         "PV:INTERLOCK2": 1,
         "PV:DI4": 1,
     }
-    h._check_fault_status("Arc")
-    assert True
+    assert h.check_fault_status() is True
 
 
-def test_u_f_07_recovery_failure_handled(monkeypatch):
+def test_u_f_07_check_faults_still_fault(monkeypatch):
     h = _build_handler(monkeypatch, max_faults=10)
     h.pv_manager.get_map = {
         "PV:ARC": 0,
@@ -123,14 +128,22 @@ def test_u_f_07_recovery_failure_handled(monkeypatch):
         "PV:INTERLOCK2": 1,
         "PV:DI4": 1,
     }
-    h._check_fault_status("Arc")
-    assert True
+    assert h.check_fault_status() is False
 
 
 def test_u_f_08_cleanup_clears_callbacks(monkeypatch):
     h = _build_handler(monkeypatch, max_faults=10)
-    pvs = [h.pv_arc, h.pv_vac_interlock, h.pv_interlock2, h.pv_di4]
+    pvs = list(h._pv_objects)
     assert any(p.callbacks for p in pvs)
     h.cleanup()
     assert all(p.cleared for p in pvs)
     assert all(not p.callbacks for p in pvs)
+
+
+def test_u_f_09_last_fault_type(monkeypatch):
+    h = _build_handler(monkeypatch, max_faults=10)
+    assert h.get_last_fault_type() is None
+    _trigger_callback(h, 0, 0)
+    assert h.get_last_fault_type() == "Arc"
+    _trigger_callback(h, 1, 0)
+    assert h.get_last_fault_type() == "VacInterlock"

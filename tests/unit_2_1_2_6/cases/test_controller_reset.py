@@ -14,6 +14,7 @@ class DummyConfig:
         self._pvs = {
             "control.start": "PV:START",
             "control.current_target_power": "PV:CURRENT_TARGET",
+            "control.pulse_start": "PV:PULSE_START",
             "rf.pulse_time": "PV:PULSE_TIME",
             "control.current_pulse": "PV:CURRENT_PULSE",
             "control.pulse_drop": "PV:PULSE_DROP",
@@ -119,16 +120,13 @@ def test_u_r_01_manual_reset_clear_faults(monkeypatch):
     c.original_pulse_start = 100.0
     c.pulse_start = 120.0
     c.fault_handler.fault_count = 5
-    old_fh = c.fault_handler
-    old_vc = c.vacuum_checker
+    c.pv_manager.get_values["PV:PULSE_START"] = 100.0
 
     c.reset(clear_faults=True)
 
     assert c.target_index == 0
     assert c.pulse_start == 100.0
-    assert old_fh.reset_called is True
-    assert old_fh.cleanup_called is True
-    assert old_vc.cleanup_called is True
+    assert c.fault_handler.reset_called is True
     assert any(call == ("PV:CURRENT_TARGET", 10.0) for call in c.pv_manager.put_calls)
 
 
@@ -181,14 +179,13 @@ def test_u_r_05_trip_during_expansion_uses_actual_pulse(monkeypatch):
     assert c.target_index == 0  # 保持当前功率目标
 
 
-def test_u_r_04_reset_rebuilds_subcontrollers(monkeypatch):
+def test_u_r_04_reset_preserves_subcontrollers(monkeypatch):
     c = _build_controller(monkeypatch)
     old_fh = c.fault_handler
     old_vc = c.vacuum_checker
+    c.pv_manager.get_values["PV:PULSE_START"] = 100.0
 
     c.reset(clear_faults=True)
 
-    assert c.fault_handler is not old_fh
-    assert c.vacuum_checker is not old_vc
-    assert old_fh.cleanup_called is True
-    assert old_vc.cleanup_called is True
+    assert c.fault_handler is old_fh
+    assert c.vacuum_checker is old_vc
