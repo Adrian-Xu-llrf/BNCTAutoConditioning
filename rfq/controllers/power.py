@@ -16,16 +16,18 @@ logger = logging.getLogger('RFQ.PowerController')
 class PowerController:
     """功率控制器"""
 
-    def __init__(self, config, pv_manager):
+    def __init__(self, config, pv_manager, sleep_func=None):
         """
         初始化功率控制器
 
         Args:
             config: 配置对象
             pv_manager: PVManager单例实例
+            sleep_func: 休眠函数（可注入替换，默认 time.sleep）
         """
         self.config = config
         self.pv_manager = pv_manager
+        self._sleep = sleep_func or time.sleep
         self.iteration_count = 0
 
     def adjust(self, current_drive_key, target_power):
@@ -97,9 +99,9 @@ class PowerController:
             f"{adj_type}{action} Drive: {current_drive:.1f}→{new_drive:.1f}, "
             f"功率={current_power:.1f}kW (目标={target_power:.1f}kW)"
         )
-        time.sleep(2)
         logger.info(msg)
-        
+        self._sleep(2)
+
         return False, msg
 
     def reset_iteration_count(self):

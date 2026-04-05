@@ -22,17 +22,35 @@ class Config:
             config_file: 配置文件路径
         """
         self.config_file = config_file
+        self._last_mtime = 0
 
         if not os.path.exists(config_file):
             raise FileNotFoundError(f"配置文件不存在: {config_file}")
 
         with open(config_file, 'r', encoding='utf-8') as f:
             self._cfg = yaml.safe_load(f)
+        self._last_mtime = os.path.getmtime(config_file)
 
     def reload(self):
         """重新从文件加载配置（用于运行中热更新）"""
         with open(self.config_file, 'r', encoding='utf-8') as f:
             self._cfg = yaml.safe_load(f)
+        self._last_mtime = os.path.getmtime(self.config_file)
+
+    def reload_if_changed(self):
+        """
+        仅在配置文件修改后重新加载（避免不必要的磁盘IO）
+
+        Returns:
+            bool: 是否重新加载了配置
+        """
+        if not os.path.exists(self.config_file):
+            return False
+        current_mtime = os.path.getmtime(self.config_file)
+        if current_mtime != self._last_mtime:
+            self.reload()
+            return True
+        return False
 
     def get(self, *keys, default=None):
         """
@@ -47,10 +65,8 @@ class Config:
         """
         value = self._cfg
         for key in keys:
-            if isinstance(value, dict):
-                value = value.get(key)
-                if value is None:
-                    return default
+            if isinstance(value, dict) and key in value:
+                value = value[key]
             else:
                 return default
         return value

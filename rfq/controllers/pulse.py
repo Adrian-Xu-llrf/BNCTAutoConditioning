@@ -16,18 +16,20 @@ logger = logging.getLogger('RFQ.PulseController')
 class PulseController:
     """脉冲控制器"""
 
-    def __init__(self, config, pv_manager):
+    def __init__(self, config, pv_manager, sleep_func=None):
         """
         初始化脉冲控制器
 
         Args:
             config: 配置对象
             pv_manager: PVManager单例实例
+            sleep_func: 休眠函数（可注入替换，默认 time.sleep）
         """
         self.config = config
         self.pv_manager = pv_manager
+        self._sleep = sleep_func or time.sleep
 
-    def expand(self, current_drive_key, init_drive, pulse_end, pulse_step):
+    def expand(self, current_drive_key, init_drive, pulse_end, pulse_step, should_stop=None):
         """
         展脉宽
 
@@ -36,6 +38,7 @@ class PulseController:
             init_drive: 初始Drive值
             pulse_end: 目标脉宽 (ms)
             pulse_step: 脉宽步长 (ms)
+            should_stop: 停止检查回调（返回True时中断降功率循环）
 
         Returns:
             tuple: (bool, str)
@@ -68,12 +71,20 @@ class PulseController:
 
             if current > target:
                 logger.debug(f"缓降Drive到目标: step={step:.3f}, {current:.3f}->{target:.3f}")
+                max_iterations = int((current - target) / step) + 10  # 安全上限
+                iteration = 0
                 while current - step > target:
+                    if should_stop and should_stop():
+                        return False, "用户停止（降功率中断）"
+                    iteration += 1
+                    if iteration > max_iterations:
+                        logger.warning(f"降功率循环超过安全上限({max_iterations}次)，强制退出")
+                        break
                     current -= step
                     self.pv_manager.put(current_drive_key, current)
-                    time.sleep(1.0)
+                    self._sleep(1.0)
                 self.pv_manager.put(current_drive_key, target)
-                time.sleep(1.0)
+                self._sleep(1.0)
                 logger.info(f"Drive已降至目标: {target:.3f}")
             else:
                 logger.debug(f"当前Drive ({current:.3f}) 已低于或等于目标 ({target:.3f})，无需降低")
@@ -84,6 +95,6 @@ class PulseController:
         self.pv_manager.put('rf.pulse_time', new_s)
         msg = f"展脉宽: {current_ms:.2f}→{new_ms:.2f}ms"
         logger.info(msg)
-        time.sleep(2)
+        self._sleep(2)
 
         return False, msg

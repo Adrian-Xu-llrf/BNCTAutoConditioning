@@ -9,6 +9,7 @@ PV管理模块
 
 import epics
 import logging
+import threading
 
 logger = logging.getLogger('RFQ.PVManager')
 
@@ -22,12 +23,14 @@ class PVManager:
     """
 
     _instance = None
+    _lock = threading.Lock()
 
     def __new__(cls, config=None):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._initialized = False
-        return cls._instance
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+                cls._instance._initialized = False
+            return cls._instance
 
     def __init__(self, config=None):
         if self._initialized:
@@ -179,26 +182,23 @@ class PVManager:
         return len(self._pv_cache)
 
     @staticmethod
-    def safe_status(text, max_chars=40, max_bytes=40):
+    def safe_status(text, max_bytes=40):
         """
-        将状态字符串限制在指定字符数与字节数以内
+        将状态字符串限制在指定字节数以内（UTF-8编码）
 
         Args:
             text: 原始文本
-            max_chars: 最大字符数
             max_bytes: 最大字节数(UTF-8编码)
 
         Returns:
             str: 截断后的文本
         """
         s = str(text)
-        if len(s) > max_chars:
-            s = s[:max_chars - 1] + '…'
-
         enc = s.encode('utf-8', errors='replace')
         if len(enc) <= max_bytes:
             return s
 
+        # 只按字节截断，避免双重截断导致中文信息丢失
         out = []
         used = 0
         for ch in s:
@@ -211,10 +211,11 @@ class PVManager:
 
     @classmethod
     def reset_instance(cls):
-        """重置单例（仅用于测试）"""
-        if cls._instance is not None:
-            cls._instance._cleanup()
-            cls._instance = None
+        """重置单例（线程安全，仅用于测试）"""
+        with cls._lock:
+            if cls._instance is not None:
+                cls._instance._cleanup()
+                cls._instance = None
 
     def _cleanup(self):
         """清理所有PV连接"""

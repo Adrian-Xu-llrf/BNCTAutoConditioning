@@ -90,3 +90,19 @@ class RFQState(Enum):
 class StateTransitionError(Exception):
     """非法状态转换异常"""
     pass
+
+
+# 合法状态转换表：定义每个状态可以转换到哪些目标状态
+# 用于 set_state() 中校验状态跳转合法性，防止非法跳转
+# 注意：IDLE 可从任何状态到达（通过 reset()），各活动状态也可直接转到 ERROR/STOPPED（通过异常处理）
+LEGAL_TRANSITIONS = {
+    RFQState.IDLE: {RFQState.INITIALIZING, RFQState.STOPPED},
+    RFQState.INITIALIZING: {RFQState.ADJUSTING_POWER, RFQState.ERROR, RFQState.PAUSED, RFQState.STOPPED, RFQState.IDLE},
+    RFQState.ADJUSTING_POWER: {RFQState.EXPANDING_PULSE, RFQState.WAITING_VACUUM, RFQState.PAUSED, RFQState.ERROR, RFQState.STOPPED, RFQState.COMPLETED, RFQState.IDLE},
+    RFQState.WAITING_VACUUM: {RFQState.ADJUSTING_POWER, RFQState.PAUSED, RFQState.ERROR, RFQState.STOPPED, RFQState.IDLE},
+    RFQState.EXPANDING_PULSE: {RFQState.ADJUSTING_POWER, RFQState.WAITING_VACUUM, RFQState.PAUSED, RFQState.ERROR, RFQState.STOPPED, RFQState.COMPLETED, RFQState.IDLE},
+    RFQState.PAUSED: {RFQState.IDLE, RFQState.ADJUSTING_POWER, RFQState.EXPANDING_PULSE, RFQState.WAITING_VACUUM, RFQState.STOPPED},
+    RFQState.ERROR: {RFQState.IDLE},
+    RFQState.STOPPED: {RFQState.IDLE},
+    RFQState.COMPLETED: {RFQState.IDLE},
+}
