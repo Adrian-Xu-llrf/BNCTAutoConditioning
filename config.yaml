@@ -14,13 +14,13 @@ loop:
   interval: 0.5          # 主循环间隔 (秒)
   max_faults: 20         # 时间窗口内最大故障次数
   fault_window_minutes: 30  # 故障计数滑动窗口(分钟)
-  max_iterations: 1000   # 最大迭代次数
+  max_iterations: 100   # 最大迭代次数
 
   wait_time_default: 1.0    # wait_time PV读取失败时的默认等待时间 (秒)，每次展脉宽等待时间
   wait_after_expand: 10.0    # 每次展脉宽结束后、开始调功率前的等待时间 (秒)
   pulse_step: 0.5           # 脉宽步长 (ms)，临时从config读取，后续改回PV
   persist_start_pulse: false  # 展脉宽后是否将起始脉宽持久化到PV
-  max_drive: 1000           # Drive值上限，超过此值且功率仍为0则报错停止
+  max_drive: 400           # Drive值上限，超过此值且功率仍为0则报错停止
 
   # 展脉宽模式配置
   reduce_power_before_expand: false  # 展脉宽前是否降功率到init_drive

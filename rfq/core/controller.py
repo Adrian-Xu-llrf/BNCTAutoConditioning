@@ -80,7 +80,6 @@ class RFQController:
         })
         self.states_need_rf = frozenset({
             RFQState.ADJUSTING_POWER,
-            RFQState.WAITING_VACUUM,
             RFQState.EXPANDING_PULSE,
         })
         self.terminal_states = frozenset({
@@ -251,10 +250,30 @@ class RFQController:
         Returns:
             RFQState or None
         """
-        # 依次检查：暂停信号 → RF状态 → 计数限制
+        # 依次检查：暂停信号 → 真空状态 → RF状态 → 计数限制
         return (self._check_pause_signal()
+                or self._check_vacuum_status()
                 or self._check_rf_status()
                 or self._check_limits())
+
+    def _check_vacuum_status(self):
+        """
+        检查真空状态，在工作状态和初始化阶段生效
+
+        Returns:
+            RFQState or None
+        """
+        if self.current_state == RFQState.WAITING_VACUUM:
+            return None
+
+        if self.current_state not in self.states_need_rf and self.current_state != RFQState.INITIALIZING:
+            return None
+
+        is_ok, vacuum_value, vacuum_pv = self.vacuum_checker.is_vacuum_ok()
+        if not is_ok:
+            logger.warning(f"通用条件检测到真空不达标: {vacuum_value:.2e} Pa ({vacuum_pv})")
+            return RFQState.WAITING_VACUUM
+        return None
 
     # ==================== 重置与清理 ====================
 

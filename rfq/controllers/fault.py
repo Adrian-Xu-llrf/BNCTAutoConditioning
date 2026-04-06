@@ -11,9 +11,9 @@
 
 复位PV（每次故障均依次全部复位）:
   - VacReset:           RFQ:Reset
-  - reset_interlock:    RFQ:LLRF:Con01:ResetInterlock
   - ResetPWFaultStat1:  RFQ:LLRF:Mon01:ResetPWFaultStat
   - ResetPWFaultStat2:  RFQ:LLRF:Mon02:ResetPWFaultStat
+  - reset_interlock:    RFQ:LLRF:Con01:ResetInterlock
 
 作者: Chengye Xu
 日期: 2026-03
@@ -34,9 +34,9 @@ class FaultHandler:
 
     RESET_PV_KEYS = [
         ('VacReset',           'fault.VacReset',           2.0, 2.0),
-        ('ResetInterlock',     'fault.reset_interlock',    1.0, 1.0),
         ('ResetPWFaultStat1',  'fault.ResetPWFaultStat1',  1.0, 1.0),
         ('ResetPWFaultStat2',  'fault.ResetPWFaultStat2',  1.0, 1.0),
+        ('ResetInterlock',     'fault.reset_interlock',    1.0, 1.0),
     ]
 
     def __init__(self, config, pv_manager):

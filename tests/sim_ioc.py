@@ -259,17 +259,60 @@ class RFQSimIOC(PVGroup):
         name='RFQ:SIM:TriggerInterlock',
         doc='写 1 → 触发联锁故障（自动清零）',
     )
+    trigger_interlock2 = pvproperty(
+        value=0, dtype=int,
+        name='RFQ:SIM:TriggerInterlock2',
+        doc='写 1 → 触发联锁2故障（自动清零）',
+    )
+    trigger_di4 = pvproperty(
+        value=0, dtype=int,
+        name='RFQ:SIM:TriggerDI4',
+        doc='写 1 → 触发DI4故障（自动清零）',
+    )
     block_rf_on = pvproperty(
         value=0, dtype=int,
         name='RFQ:SIM:BlockRFOn',
         doc='写 1 → 拦截 rf_on=1（保持RF关闭）',
     )
+    block_power = pvproperty(
+        value=0, dtype=int,
+        name='RFQ:SIM:BlockPower',
+        doc='写 1 → 强制功率输出为 0（模拟 Drive 增加但无功率输出）',
+    )
+    sim_vac_all = pvproperty(
+        value=1e-6, dtype=float,
+        name='RFQ:SIM:VacAll',
+        doc='写入值 → 同时设置所有真空计（Pa），用于模拟真空整体变化',
+    )
+    sim_vac_target = pvproperty(
+        value=-1, dtype=int,
+        name='RFQ:SIM:VacTarget',
+        doc='指定单个真空计编号（0-7），配合 RFQ:SIM:VacSingle 使用；-1表示不生效',
+    )
+    sim_vac_single = pvproperty(
+        value=1e-6, dtype=float,
+        name='RFQ:SIM:VacSingle',
+        doc='写入值 → 设置 RFQ:SIM:VacTarget 指定的单个真空计（Pa）',
+    )
 
     @rf_on.putter
     async def rf_on(self, instance, value):
-        """可选拦截 RF 启动：block_rf_on=1 时，rf_on 写 1 将被拒绝并保持 0。"""
-        if int(value) == 1 and int(self.block_rf_on.value) == 1:
-            return 0
+        """
+        RF 开关 putter：
+        - block_rf_on=1 时拒绝 rf_on=1
+        - 任一故障 PV==0 时拒绝 rf_on=1（必须全部复位后才能启动 RF）
+        """
+        if int(value) == 1:
+            if int(self.block_rf_on.value) == 1:
+                return 0
+            fault_pvs = [
+                self.arc_status_rd,
+                self.interlock_status_rd,
+                self.interlock_status2_rd,
+                self.di4,
+            ]
+            if any(pv.value == 0 for pv in fault_pvs):
+                return 0
         return int(value)
 
     # ==================== 4.1 功率仿真 (startup 钩子) ====================
@@ -294,6 +337,13 @@ class RFQSimIOC(PVGroup):
         while True:
             await async_lib.library.sleep(0.1)
 
+            if self.block_power.value == 1:
+                current_power *= 0.3
+                if current_power < 0.01:
+                    current_power = 0.0
+                await instance.write(current_power)
+                continue
+
             rf_on_val = self.rf_on.value
 
             if rf_on_val == 1:
@@ -314,63 +364,134 @@ class RFQSimIOC(PVGroup):
 
             await instance.write(current_power)
 
+    # ==================== 4.2 故障监控 (startup 钩子) ====================
+
+    @arc_status_rd.startup
+    async def arc_status_rd(self, instance, async_lib):
+        """
+        故障监控主循环，每 0.1 秒检查所有故障 PV。
+        任一故障 PV == 0 时自动关闭 RF、清零 Drive（模拟硬件保护行为）。
+        """
+        while True:
+            await async_lib.library.sleep(0.1)
+
+            fault_pvs = [
+                self.arc_status_rd,
+                self.interlock_status_rd,
+                self.interlock_status2_rd,
+                self.di4,
+            ]
+            any_fault = any(pv.value == 0 for pv in fault_pvs)
+
+            if any_fault and self.rf_on.value == 1:
+                await self.rf_on.write(0)
+                await self.pulse_drive.write(0.0)
+                await self.cw_drive.write(0.0)
+
     # ==================== 4.3 故障注入回调 ====================
 
     @trigger_arc.putter
     async def trigger_arc(self, instance, value):
-        """触发打火故障: arc_status_rd→0, rf_on→0, drive→0, power→0，PV 自动清零"""
+        """触发打火故障: arc_status_rd→0，PV 自动清零（RF 由故障监控循环关闭）"""
         if value == 1:
             await self.arc_status_rd.write(0)
-            await self.rf_on.write(0)
-            await self.pulse_drive.write(0.0)
-            await self.cw_drive.write(0.0)
-            await self.power.write(0.0)
             return 0
         return value
 
     @trigger_interlock.putter
     async def trigger_interlock(self, instance, value):
-        """触发联锁故障: interlock_status_rd→0, rf_on→0, drive→0, power→0，PV 自动清零"""
+        """触发联锁故障: interlock_status_rd→0，PV 自动清零（RF 由故障监控循环关闭）"""
         if value == 1:
             await self.interlock_status_rd.write(0)
-            await self.rf_on.write(0)
-            await self.pulse_drive.write(0.0)
-            await self.cw_drive.write(0.0)
-            await self.power.write(0.0)
+            return 0
+        return value
+
+    @trigger_interlock2.putter
+    async def trigger_interlock2(self, instance, value):
+        """触发联锁2故障: interlock_status2_rd→0，PV 自动清零（RF 由故障监控循环关闭）"""
+        if value == 1:
+            await self.interlock_status2_rd.write(0)
+            return 0
+        return value
+
+    @trigger_di4.putter
+    async def trigger_di4(self, instance, value):
+        """触发DI4故障: di4→0，PV 自动清零（RF 由故障监控循环关闭）"""
+        if value == 1:
+            await self.di4.write(0)
             return 0
         return value
 
     # ==================== 4.4 故障复位回调 ====================
+    #
+    # 所有 reset PV 必须被触发一遍，故障才会消除。
+    # _reset_done 集合追踪哪些 reset 已执行，全部完成后恢复故障 PV。
+
+    _reset_done = set()
+    _reset_all_keys = {'vac_reset', 'reset_interlock', 'reset_pw_fault1', 'reset_pw_fault2'}
+
+    async def _check_reset_complete(self):
+        """检查是否所有 reset 都已触发，如果是则恢复所有故障 PV"""
+        if self._reset_all_keys.issubset(self._reset_done):
+            self._reset_done.clear()
+            await self.arc_status_rd.write(1)
+            await self.interlock_status_rd.write(1)
+            await self.interlock_status2_rd.write(1)
+            await self.di4.write(1)
+            await self.ssa_comp.write(1)
+            await self.reflected_power_comp.write(1)
+
+    @vac_reset.putter
+    async def vac_reset(self, instance, value):
+        """真空复位: 标记完成，全部 reset 到齐后恢复故障"""
+        if value == 1:
+            self._reset_done.add('vac_reset')
+            await self._check_reset_complete()
+        return value
 
     @reset_interlock.putter
     async def reset_interlock(self, instance, value):
-        """复位联锁: 延迟 1 秒后 arc_status_rd / interlock_status_rd → 1"""
+        """联锁复位: 标记完成，全部 reset 到齐后恢复故障"""
         if value == 1:
-            import asyncio
-            await asyncio.sleep(1.0)
-            await self.arc_status_rd.write(1)
-            await self.interlock_status_rd.write(1)
+            self._reset_done.add('reset_interlock')
+            await self._check_reset_complete()
         return value
 
     @reset_pw_fault1.putter
     async def reset_pw_fault1(self, instance, value):
-        """复位功率故障1: 延迟 1 秒后 ssa_comp / reflected_power_comp → 1"""
+        """功率故障1复位: 标记完成，全部 reset 到齐后恢复故障"""
         if value == 1:
-            import asyncio
-            await asyncio.sleep(1.0)
-            await self.ssa_comp.write(1)
-            await self.reflected_power_comp.write(1)
+            self._reset_done.add('reset_pw_fault1')
+            await self._check_reset_complete()
         return value
 
     @reset_pw_fault2.putter
     async def reset_pw_fault2(self, instance, value):
-        """复位功率故障2: 延迟 1 秒后 ssa_comp / reflected_power_comp → 1"""
+        """功率故障2复位: 标记完成，全部 reset 到齐后恢复故障"""
         if value == 1:
-            import asyncio
-            await asyncio.sleep(1.0)
-            await self.ssa_comp.write(1)
-            await self.reflected_power_comp.write(1)
+            self._reset_done.add('reset_pw_fault2')
+            await self._check_reset_complete()
         return value
+
+    # ==================== 4.5 真空控制回调 ====================
+
+    @sim_vac_all.putter
+    async def sim_vac_all(self, instance, value):
+        """同时设置所有真空计"""
+        for v in [self.vac1, self.vac2, self.vac3, self.vac4,
+                   self.vac5, self.vac6, self.vac7, self.vac8]:
+            await v.write(float(value))
+        return float(value)
+
+    @sim_vac_single.putter
+    async def sim_vac_single(self, instance, value):
+        """设置单个真空计（由 sim_vac_target 指定编号 0-7）"""
+        idx = int(self.sim_vac_target.value)
+        targets = [self.vac1, self.vac2, self.vac3, self.vac4,
+                   self.vac5, self.vac6, self.vac7, self.vac8]
+        if 0 <= idx < len(targets):
+            await targets[idx].write(float(value))
+        return float(value)
 
 
 if __name__ == '__main__':
