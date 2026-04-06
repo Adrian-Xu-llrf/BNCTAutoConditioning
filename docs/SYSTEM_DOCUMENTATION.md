@@ -252,7 +252,8 @@ vacuum:
 
 loop:
   interval: 0.5            # 主循环间隔 (秒)
-  max_faults: 20           # 最大故障次数（超限进入 ERROR）
+  max_faults: 20           # 时间窗口内最大故障次数（超限进入 ERROR）
+  fault_window_minutes: 30 # 故障计数滑动窗口(分钟)
   max_iterations: 1000     # 最大迭代次数（超限进入 ERROR）
   reduce_power_before_expand: false  # 展脉宽前是否先降功率
   rf_startup:
@@ -557,18 +558,28 @@ else:  # margin_small ≤ 误差 < margin_large
 
 **PV 值语义**：`0 = 故障`，`1 = 正常`
 
-**回调机制**：
+**回调机制**（滑动窗口计数）：
 
 ```python
 def callback(value):
-    if value == 0:               # 值变为 0 表示发生故障
-        fault_count += 1
-        last_fault_type = "Arc"  # 记录故障类型
-        if fault_count >= max_faults:
-            fault_exceeded = True  # 标记超限
+    if value == 0:                           # 值变为 0 表示发生故障
+        now = time.time()
+        fault_timestamps.append(now)          # 记录故障时间戳
+        # 清理窗口外的旧时间戳
+        cutoff = now - fault_window           # fault_window = fault_window_minutes * 60
+        fault_timestamps = [ts for ts in fault_timestamps if ts > cutoff]
+        count = len(fault_timestamps)
+        if count >= max_faults:               # 窗口内故障数 ≥ max_faults
+            fault_exceeded = True
 ```
 
-回调在 EPICS 线程中执行，通过 `threading.Lock` 保护 `fault_count` 和 `fault_exceeded` 的读写。
+**滑动窗口策略**：不是累计计数，而是只统计 `fault_window_minutes`（默认 30 分钟）内的故障次数。这确保长时间老练（如一个月）不会因为历史故障累积而触发超限，只在短时间内频繁故障时才判定超限。
+
+- `is_fault_exceeded()` / `get_fault_count()` 每次查询时也会清理过期时间戳
+- 如果窗口内故障数降到 `max_faults` 以下，`fault_exceeded` 会自动清除
+- `reset_fault_count()` 清空所有时间戳（用户手动 Reset 时调用）
+
+回调在 EPICS 线程中执行，通过 `threading.Lock` 保护 `fault_timestamps` 和 `fault_exceeded` 的读写。
 
 **故障复位 `reset_all_faults()`**：
 

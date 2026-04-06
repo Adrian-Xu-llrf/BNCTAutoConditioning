@@ -12,7 +12,8 @@ vacuum:
 # ==================== 循环参数 ====================
 loop:
   interval: 0.5          # 主循环间隔 (秒)
-  max_faults: 20         # 最大故障次数
+  max_faults: 20         # 时间窗口内最大故障次数
+  fault_window_minutes: 30  # 故障计数滑动窗口(分钟)
   max_iterations: 1000   # 最大迭代次数
 
   wait_time_default: 1.0    # wait_time PV读取失败时的默认等待时间 (秒)，每次展脉宽等待时间

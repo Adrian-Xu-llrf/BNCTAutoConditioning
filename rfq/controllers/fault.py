@@ -50,10 +50,14 @@ class FaultHandler:
         self.config = config
         self.pv_manager = pv_manager
 
-        self.fault_count = 0
+        self.fault_timestamps = []  # 滑动窗口：存储故障发生时间戳
         self.fault_exceeded = False
         self.lock = threading.Lock()
         self.last_fault_type = None
+
+        # 从配置读取滑动窗口参数
+        self.max_faults = self.config.loop.get('max_faults', 20)
+        self.fault_window = self.config.loop.get('fault_window_minutes', 30) * 60  # 转为秒
 
         for pv_key in self.FAULT_PV_KEYS:
             pv_obj = self.pv_manager.get_pv_object(pv_key)
@@ -74,13 +78,23 @@ class FaultHandler:
             logger.debug(f"{display_name} PV变化: {pvname}={value}")
             if value == 0:
                 with self.lock:
-                    self.fault_count += 1
+                    now = time.time()
+                    self.fault_timestamps.append(now)
                     self.last_fault_type = display_name
+                    # 清理窗口外的旧时间戳
+                    cutoff = now - self.fault_window
+                    self.fault_timestamps = [
+                        ts for ts in self.fault_timestamps if ts > cutoff
+                    ]
+                    count = len(self.fault_timestamps)
                     logger.warning(
-                        f"检测到{display_name}故障 (第{self.fault_count}次)"
+                        f"检测到{display_name}故障 "
+                        f"(窗口内{count}/{self.max_faults}次)"
                     )
-                    if self.fault_count >= self.config.loop['max_faults']:
-                        logger.error("故障次数超限")
+                    if count >= self.max_faults:
+                        logger.error(
+                            f"故障次数超限: {count}次/{self.fault_window/60:.0f}分钟内"
+                        )
                         self.fault_exceeded = True
 
         return callback
@@ -138,15 +152,27 @@ class FaultHandler:
             logger.warning("复位后仍有未恢复的故障")
         return all_ok
 
+    def _prune_old_faults(self):
+        """清理窗口外的旧时间戳（调用方需持有 self.lock）"""
+        cutoff = time.time() - self.fault_window
+        self.fault_timestamps = [
+            ts for ts in self.fault_timestamps if ts > cutoff
+        ]
+        # 如果清理后不再超限，清除标记
+        if len(self.fault_timestamps) < self.max_faults:
+            self.fault_exceeded = False
+
     def is_fault_exceeded(self):
         """检查故障是否超限"""
         with self.lock:
+            self._prune_old_faults()
             return self.fault_exceeded
 
     def get_fault_count(self):
-        """获取故障次数"""
+        """获取当前窗口内故障次数"""
         with self.lock:
-            return self.fault_count
+            self._prune_old_faults()
+            return len(self.fault_timestamps)
 
     def get_last_fault_type(self):
         """获取最近一次故障类型"""
@@ -157,7 +183,7 @@ class FaultHandler:
         """重置故障计数（用户手动Reset时调用）"""
         with self.lock:
             logger.info("重置故障计数")
-            self.fault_count = 0
+            self.fault_timestamps.clear()
             self.fault_exceeded = False
             self.last_fault_type = None
 
