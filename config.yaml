@@ -20,6 +20,7 @@ loop:
   wait_after_expand: 10.0    # 每次展脉宽结束后、开始调功率前的等待时间 (秒)
   pulse_step: 0.5           # 脉宽步长 (ms)，临时从config读取，后续改回PV
   persist_start_pulse: false  # 展脉宽后是否将起始脉宽持久化到PV
+  max_drive: 1000           # Drive值上限，超过此值且功率仍为0则报错停止
 
   # 展脉宽模式配置
   reduce_power_before_expand: false  # 展脉宽前是否降功率到init_drive
@@ -98,7 +99,8 @@ pv:
     current_pulse: 'RFQ:LLRF:Con01:AutoC_CurrentPulse'
 
 # ==================== 日志配置 ====================
+# 日志文件存放在 logs/ 目录下，每天午夜自动轮转，保留30天
+# 文件命名: logs/rfq_conditioning.log (当天) / logs/rfq_conditioning_2026-04-05.log (历史)
 logging:
   level: 'INFO'
-  file: 'rfq_auto_conditioning.log'
   format: '%(asctime)s [%(levelname)s] %(message)s'

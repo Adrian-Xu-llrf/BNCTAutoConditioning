@@ -13,7 +13,9 @@ RFQ自动老练系统 - 主程序入口
 """
 
 import logging
+import os
 import sys
+from logging.handlers import TimedRotatingFileHandler
 from rfq import get_config, RFQController
 
 
@@ -25,13 +27,38 @@ def setup_logging(config):
         config: 配置对象
     """
     log_cfg = config.logging
+    log_level = log_cfg.get('level', 'DEBUG')
+    log_format = log_cfg.get('format', '%(asctime)s [%(levelname)s] %(message)s')
+
+    log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+
+    base_name = 'rfq_conditioning'
+    log_file = os.path.join(log_dir, f'{base_name}.log')
+
+    def log_namer(default_name):
+        base, _ = os.path.splitext(default_name)
+        date_part = base[len(log_file):].lstrip('.')
+        return os.path.join(log_dir, f'{base_name}_{date_part}.log')
+
+    file_handler = TimedRotatingFileHandler(
+        filename=log_file,
+        when='midnight',
+        interval=1,
+        backupCount=30,
+        encoding='utf-8',
+    )
+    file_handler.suffix = '%Y-%m-%d'
+    file_handler.extMatch = r'^\d{4}-\d{2}-\d{2}$'
+    file_handler.namer = log_namer
+
     logging.basicConfig(
-        level=log_cfg.get('level', 'DEBUG'),
-        format=log_cfg.get('format', '%(asctime)s [%(levelname)s] %(message)s'),
+        level=log_level,
+        format=log_format,
         handlers=[
-            logging.FileHandler(log_cfg.get('file', 'rfq_auto_conditioning.log'), encoding='utf-8'),
-            logging.StreamHandler()
-        ]
+            file_handler,
+            logging.StreamHandler(),
+        ],
     )
 
 
