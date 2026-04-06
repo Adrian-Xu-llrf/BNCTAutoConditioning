@@ -485,6 +485,9 @@ class RFQController:
                 self.set_state(RFQState.EXPANDING_PULSE)
             else:
                 self.set_state(RFQState.COMPLETED)
+        elif self.power_controller.fatal_error:
+            self.error_message = self.power_controller.fatal_error
+            self.set_state(RFQState.ERROR)
         else:
             logger.debug("功率未达标，继续调节")
 

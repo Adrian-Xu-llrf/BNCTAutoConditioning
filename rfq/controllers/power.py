@@ -29,6 +29,7 @@ class PowerController:
         self.pv_manager = pv_manager
         self._sleep = sleep_func or time.sleep
         self.iteration_count = 0
+        self.fatal_error = None
 
     def adjust(self, current_drive_key, target_power):
         """
@@ -51,6 +52,14 @@ class PowerController:
         if current_drive is None:
             logger.error(f"无法读取Drive PV: {current_drive_key}")
             return False, "无法读取Drive"
+
+        max_drive = self.config.loop.get('max_drive', 1000)
+        if current_drive >= max_drive and current_power <= 0:
+            msg = f"Drive已超限({current_drive:.1f}>={max_drive})且功率为0，硬件可能异常"
+            logger.error(msg)
+            self.fatal_error = msg
+            return False, msg
+        self.fatal_error = None
 
         logger.debug("读取功率调节参数...")
         drive_step1 = self.pv_manager.get('control.drive_step1')
