@@ -47,6 +47,7 @@ pv:
     sweep: 'RFQ:LLRF:Con01_DAC:FreqSweep_Set'
     tracking: 'RFQ:LLRF:Con01:frequency_tracking'
     power: 'RFQ:LLRF:Con01_RFIn03:Power'
+    Amp_Limiter: 'RFQ:LLRF:Con01:AmpLimiter_Set'
 
 
 

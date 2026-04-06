@@ -52,6 +52,11 @@ class RFQSimIOC(PVGroup):
         name='RFQ:LLRF:Con01:frequency_tracking',
         doc='频率跟踪',
     )
+    amp_limiter = pvproperty(
+        value=400.0, dtype=float,
+        name='RFQ:LLRF:Con01:AmpLimiter_Set',
+        doc='Drive 幅度上限',
+    )
     power = pvproperty(
         value=0.0, dtype=float,
         name='RFQ:LLRF:Con01_RFIn03:Power',

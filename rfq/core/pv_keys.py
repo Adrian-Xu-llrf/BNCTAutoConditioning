@@ -20,6 +20,7 @@ class PVKeys:
     PULSE_TIME = 'rf.pulse_time'
     SWEEP = 'rf.sweep'
     TRACKING = 'rf.tracking'
+    AMP_LIMITER = 'rf.Amp_Limiter'
 
     # ==================== 故障 PV ====================
     FAULT_ARC = 'fault.arc'

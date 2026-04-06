@@ -10,6 +10,8 @@
 import logging
 import time
 
+from rfq.core.pv_keys import PVKeys
+
 logger = logging.getLogger('RFQ.PowerController')
 
 
@@ -53,7 +55,8 @@ class PowerController:
             logger.error(f"无法读取Drive PV: {current_drive_key}")
             return False, "无法读取Drive"
 
-        max_drive = self.config.loop.get('max_drive', 1000)
+        amp_limiter = self.pv_manager.get(PVKeys.AMP_LIMITER)
+        max_drive = float(amp_limiter) if amp_limiter is not None else self.config.loop.get('max_drive', 1000)
         if current_drive >= max_drive and current_power <= 0:
             msg = f"Drive已超限({current_drive:.1f}>={max_drive})且功率为0，硬件可能异常"
             logger.error(msg)
@@ -94,6 +97,14 @@ class PowerController:
         if error < 0:
             new_drive = current_drive + step
             action = "增加"
+            if new_drive > max_drive:
+                if current_drive >= max_drive:
+                    msg = f"Drive已达AmpLimiter上限({max_drive:.1f})，无法继续增加，功率={current_power:.1f}kW (目标={target_power:.1f}kW)"
+                    logger.warning(msg)
+                    self._sleep(2)
+                    return False, msg
+                new_drive = max_drive
+                logger.warning(f"Drive已达AmpLimiter上限({max_drive:.1f})，限制调节")
         else:
             new_drive = current_drive - step
             action = "减少"
