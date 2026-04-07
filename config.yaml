@@ -55,10 +55,8 @@ pv:
   fault:
     arc: 'RFQ:LLRF:Con01:ArcStatus_Rd'
     VacInterlock: 'RFQ:LLRF:Con01:InterlockStatus_Rd'
-
     interlock2: 'RFQ:LLRF:Con01:InterlockStatus2_Rd'
     di4: 'RFQ:LLRF:Con01:di4'
-
     SSAComp: 'RFQ:LLRF:Mon02:ForwardPowerComp'
     ReflectedPowerComp: 'RFQ:LLRF:Mon02:ReflectedPowerComp'
 
