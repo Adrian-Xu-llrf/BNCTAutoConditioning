@@ -62,7 +62,7 @@ pv:
     reset_interlock: 'RFQ:LLRF:Con01:ResetInterlock'
     ResetPWFaultStat1: 'RFQ:LLRF:Mon01:ResetPWFaultStat'
     ResetPWFaultStat2: 'RFQ:LLRF:Mon02:ResetPWFaultStat'
-    VacReset: 'RFQ:Reset' # 真空复位PV
+    VacReset: 'RFQ:LLRF:SPS:Reset' # 真空复位PV
   # 真空PV
   vacuum:
     - 'C1:VAC'

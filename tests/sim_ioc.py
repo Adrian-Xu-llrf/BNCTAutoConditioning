@@ -116,7 +116,7 @@ class RFQSimIOC(PVGroup):
     )
     vac_reset = pvproperty(
         value=0, dtype=int,
-        name='RFQ:Reset',
+        name='RFQ:LLRF:SPS:Reset',
         doc='真空复位',
     )
 
