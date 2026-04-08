@@ -19,17 +19,17 @@ class RFQSimIOC(PVGroup):
     # ==================== 3.1 RF 控制 PV ====================
     rf_on = pvproperty(
         value=0, dtype=int,
-        name='RFQ:LLRF:Con01:Opr_RFOn',
+        name='RFQ:LLRF:Con01:RFOn',
         doc='RF 开/关',
     )
     pulse_drive = pvproperty(
         value=0.0, dtype=float,
-        name='RFQ:LLRF:Con01:AmpPulseDrive_Set',
+        name='RFQ:LLRF:Con01:AmpPulseDrive',
         doc='脉冲模式 Drive',
     )
     cw_drive = pvproperty(
         value=0.0, dtype=float,
-        name='RFQ:LLRF:Con01:AmpCWDrive_Set',
+        name='RFQ:LLRF:Con01:AmpCWDrive',
         doc='CW 模式 Drive',
     )
     pulse_cw = pvproperty(
@@ -39,12 +39,12 @@ class RFQSimIOC(PVGroup):
     )
     pulse_time = pvproperty(
         value=100.0, dtype=float,
-        name='RFQ:LLRF:Con01:RFPulseOnTime_Set',
+        name='RFQ:LLRF:Con01:pulseontime',
         doc='脉冲宽度（s）',
     )
     freq_sweep = pvproperty(
         value=0, dtype=int,
-        name='RFQ:LLRF:Con01_DAC:FreqSweep_Set',
+        name='RFQ:LLRF:Con01:sweepfrequency',
         doc='频率扫描',
     )
     freq_tracking = pvproperty(
@@ -54,12 +54,12 @@ class RFQSimIOC(PVGroup):
     )
     amp_limiter = pvproperty(
         value=400.0, dtype=float,
-        name='RFQ:LLRF:Con01:AmpLimiter_Set',
+        name='RFQ:LLRF:Con01:amplimiter',
         doc='Drive 幅度上限',
     )
     power = pvproperty(
         value=0.0, dtype=float,
-        name='RFQ:LLRF:Con01_RFIn03:Power',
+        name='RFQ:LLRF:Con01:rf1power',
         doc='当前腔体功率（kW）[仿真输出]',
     )
     wait_time = pvproperty(
@@ -71,17 +71,17 @@ class RFQSimIOC(PVGroup):
     # ==================== 3.2 故障 PV ====================
     arc_status_rd = pvproperty(
         value=1, dtype=int,
-        name='RFQ:LLRF:Con01:ArcStatus_Rd',
+        name='RFQ:LLRF:Con01:Arc_Lock',
         doc='打火状态（1=正常，0=故障）',
     )
     interlock_status_rd = pvproperty(
         value=1, dtype=int,
-        name='RFQ:LLRF:Con01:InterlockStatus_Rd',
+        name='RFQ:LLRF:Con01:Arc_Status',
         doc='联锁状态（1=正常，0=故障）',
     )
     interlock_status2_rd = pvproperty(
         value=1, dtype=int,
-        name='RFQ:LLRF:Con01:InterlockStatus2_Rd',
+        name='RFQ:LLRF:Con01:Interlock_Status',
         doc='联锁状态2（1=正常，0=故障）',
     )
     di4 = pvproperty(
@@ -123,43 +123,33 @@ class RFQSimIOC(PVGroup):
     # ==================== 3.3 真空 PV ====================
     vac1 = pvproperty(
         value=1e-6, dtype=float,
-        name='RFQ:Vac1',
+        name='C1:VAC',
         doc='真空计1（Pa）',
     )
     vac2 = pvproperty(
         value=1e-6, dtype=float,
-        name='RFQ:Vac2',
+        name='C2:VAC',
         doc='真空计2（Pa）',
     )
     vac3 = pvproperty(
         value=1e-6, dtype=float,
-        name='RFQ:Vac3',
+        name='C3:VAC',
         doc='真空计3（Pa）',
     )
     vac4 = pvproperty(
         value=1e-6, dtype=float,
-        name='RFQ:Vac4',
+        name='C4:VAC',
         doc='真空计4（Pa）',
     )
     vac5 = pvproperty(
         value=1e-6, dtype=float,
-        name='RFQ:Vac5',
+        name='C5:VAC',
         doc='真空计5（Pa）',
     )
     vac6 = pvproperty(
         value=1e-6, dtype=float,
-        name='RFQ:Vac6',
+        name='C6:VAC',
         doc='真空计6（Pa）',
-    )
-    vac7 = pvproperty(
-        value=1e-6, dtype=float,
-        name='RFQ:Vac7',
-        doc='真空计7（Pa）',
-    )
-    vac8 = pvproperty(
-        value=1e-6, dtype=float,
-        name='RFQ:Vac8',
-        doc='真空计8（Pa）',
     )
 
     # ==================== 3.4 老练控制 PV ====================
@@ -292,7 +282,7 @@ class RFQSimIOC(PVGroup):
     sim_vac_target = pvproperty(
         value=-1, dtype=int,
         name='RFQ:SIM:VacTarget',
-        doc='指定单个真空计编号（0-7），配合 RFQ:SIM:VacSingle 使用；-1表示不生效',
+        doc='指定单个真空计编号（0-5），配合 RFQ:SIM:VacSingle 使用；-1表示不生效',
     )
     sim_vac_single = pvproperty(
         value=1e-6, dtype=float,
@@ -484,7 +474,7 @@ class RFQSimIOC(PVGroup):
     async def sim_vac_all(self, instance, value):
         """同时设置所有真空计"""
         for v in [self.vac1, self.vac2, self.vac3, self.vac4,
-                   self.vac5, self.vac6, self.vac7, self.vac8]:
+                   self.vac5, self.vac6]:
             await v.write(float(value))
         return float(value)
 
@@ -514,9 +504,9 @@ if __name__ == '__main__':
     print("  pulse_cw=0 → CW 模式  (cw_drive)")
     print("=" * 55)
     print("快速验证:")
-    print("  caproto-put RFQ:LLRF:Con01:Opr_RFOn 1")
-    print("  caproto-put RFQ:LLRF:Con01:AmpCWDrive_Set 100")
-    print("  caproto-get RFQ:LLRF:Con01_RFIn03:Power   # 期望≈10kW")
+    print("  caproto-put RFQ:LLRF:Con01:RFOn 1")
+    print("  caproto-put RFQ:LLRF:Con01:AmpCWDrive 100")
+    print("  caproto-get RFQ:LLRF:Con01:rf1power   # 期望≈10kW")
     print("  caproto-get RFQ:LLRF:Con01:AutoC_PowerTargets  # 期望[10,20,30,0,...]")
     print("=" * 55)
 

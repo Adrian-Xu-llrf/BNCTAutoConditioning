@@ -39,26 +39,25 @@ loop:
 pv:
   # RF控制PV
   rf:
-    rf_on: 'RFQ:LLRF:Con01:Opr_RFOn'
-    pulse_drive: 'RFQ:LLRF:Con01:AmpPulseDrive_Set'
-    cw_drive: 'RFQ:LLRF:Con01:AmpCWDrive_Set'
+    rf_on: 'RFQ:LLRF:Con01:RFOn'
+    pulse_drive: 'RFQ:LLRF:Con01:AmpPulseDrive'
+    cw_drive: 'RFQ:LLRF:Con01:AmpCWDrive'
     pulse_cw: 'RFQ:LLRF:Con01:pulsecw'
-    pulse_time: 'RFQ:LLRF:Con01:RFPulseOnTime_Set'
-    sweep: 'RFQ:LLRF:Con01_DAC:FreqSweep_Set'
+    pulse_time: 'RFQ:LLRF:Con01:pulseontime'
+    sweep: 'RFQ:LLRF:Con01:sweepfrequency'
     tracking: 'RFQ:LLRF:Con01:frequency_tracking'
-    power: 'RFQ:LLRF:Con01_RFIn03:Power'
-    Amp_Limiter: 'RFQ:LLRF:Con01:AmpLimiter_Set'
+    power: 'RFQ:LLRF:Con01:rf1power'
+    Amp_Limiter: 'RFQ:LLRF:Con01:amplimiter'
 
 
 
   # 故障PV
   fault:
-    arc: 'RFQ:LLRF:Con01:ArcStatus_Rd'
-    VacInterlock: 'RFQ:LLRF:Con01:InterlockStatus_Rd'
-    interlock2: 'RFQ:LLRF:Con01:InterlockStatus2_Rd'
+    arc: 'RFQ:LLRF:Con01:Arc_Lock'
+    VacInterlock: 'RFQ:LLRF:Con01:Arc_Status'
+    interlock2: 'RFQ:LLRF:Con01:Interlock_Status'
     di4: 'RFQ:LLRF:Con01:di4'
-    SSAComp: 'RFQ:LLRF:Mon02:ForwardPowerComp'
-    ReflectedPowerComp: 'RFQ:LLRF:Mon02:ReflectedPowerComp'
+
 
     reset_interlock: 'RFQ:LLRF:Con01:ResetInterlock'
     ResetPWFaultStat1: 'RFQ:LLRF:Mon01:ResetPWFaultStat'
@@ -66,14 +65,13 @@ pv:
     VacReset: 'RFQ:Reset' # 真空复位PV
   # 真空PV
   vacuum:
-    - 'RFQ:Vac1'
-    - 'RFQ:Vac2'
-    - 'RFQ:Vac3'
-    - 'RFQ:Vac4'
-    - 'RFQ:Vac5'
-    - 'RFQ:Vac6'
-    - 'RFQ:Vac7'
-    - 'RFQ:Vac8'
+    - 'C1:VAC'
+    - 'C2:VAC'
+    - 'C3:VAC'
+    - 'C4:VAC'
+    - 'C5:VAC'
+    - 'C6:VAC'
+
 
 
 
