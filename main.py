@@ -37,8 +37,14 @@ def setup_logging(config):
     log_file = os.path.join(log_dir, f'{base_name}.log')
 
     def log_namer(default_name):
-        base, _ = os.path.splitext(default_name)
-        date_part = base[len(log_file):].lstrip('.')
+        filename = os.path.basename(default_name)
+        parts = filename.rsplit('.', 1)
+        if len(parts) == 2 and parts[1].startswith('2026'):
+            date_part = parts[1]
+        else:
+            date_part = parts[0].replace(base_name, '')
+            if date_part.startswith('_'):
+                date_part = date_part[1:]
         return os.path.join(log_dir, f'{base_name}_{date_part}.log')
 
     file_handler = TimedRotatingFileHandler(
