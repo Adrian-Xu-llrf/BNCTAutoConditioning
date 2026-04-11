@@ -467,9 +467,17 @@ class RFQController:
                 return
 
             logger.debug("步骤3/3: 启动RF系统")
-            if not self.rf_manager.startup(self.params.init_drive):
-                self.error_message = "RF启动失败"
-                self.set_state(RFQState.ERROR)
+            if not self.rf_manager.startup(
+                self.params.init_drive,
+                should_stop=lambda: self._get_pv('control.start') == 0,
+            ):
+                if self._get_pv('control.start') == 0:
+                    logger.info("RF启动被用户中断")
+                    self.error_message = "用户停止"
+                    self.set_state(RFQState.STOPPED)
+                else:
+                    self.error_message = "RF启动失败"
+                    self.set_state(RFQState.ERROR)
                 return
 
             logger.info("初始化完成，进入稳定建场状态")

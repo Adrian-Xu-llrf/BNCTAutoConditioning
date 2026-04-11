@@ -37,7 +37,7 @@ loop:
     max_retry: 5         # RF启动最大重试次数
     retry_interval: 2    # 重试间隔 (秒)
     fault_reset_timeout: 5  # 故障重置超时 (秒)
-    start_frequency: 162.614  # RF启动时写入的起始频率 (MHz)
+    # start_frequency: 162.614  # RF启动时写入的起始频率 (MHz)（暂时禁用）
 
 
 

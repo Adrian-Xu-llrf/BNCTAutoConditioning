@@ -80,17 +80,22 @@ class RFManager:
             logger.info("连续波模式")
         return True
 
-    def startup(self, init_drive):
+    def startup(self, init_drive, should_stop=None):
         """
         启动RF系统，失败时自动重置故障并重试
 
         Args:
             init_drive: 初始Drive值
+            should_stop: 停止检查回调（返回True时中断启动流程）
 
         Returns:
             bool: 启动是否成功
         """
         for attempt in range(self.max_retries):
+            if should_stop and should_stop():
+                logger.info("检测到停止信号，中断RF启动")
+                return False
+
             logger.info(f"RF启动尝试 {attempt + 1}/{self.max_retries}")
 
             if self.start_frequency is not None:
