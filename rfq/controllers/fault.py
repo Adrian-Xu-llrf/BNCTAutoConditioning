@@ -56,8 +56,7 @@ class FaultHandler:
         self.last_fault_type = None
 
         # 从配置读取滑动窗口参数
-        self.max_faults = self.config.loop.get('max_faults', 20)
-        self.fault_window = self.config.loop.get('fault_window_minutes', 30) * 60  # 转为秒
+        self.reload_config()
 
         for pv_key in self.FAULT_PV_KEYS:
             pv_obj = self.pv_manager.get_pv_object(pv_key)
@@ -65,6 +64,11 @@ class FaultHandler:
                 pv_obj.add_callback(self._make_callback(pv_key))
 
         logger.info("故障监听器已启动 (arc / VacInterlock / interlock2 / di4)")
+
+    def reload_config(self):
+        """重新从 config 读取滑动窗口参数（支持热加载）"""
+        self.max_faults = self.config.loop.get('max_faults', 20)
+        self.fault_window = self.config.loop.get('fault_window_minutes', 30) * 60  # 转为秒
 
     def _make_callback(self, pv_key):
         """创建故障回调闭包"""

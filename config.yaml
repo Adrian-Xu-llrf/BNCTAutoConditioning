@@ -47,6 +47,7 @@ pv:
     cw_drive: 'RFQ:LLRF:Con01:AmpCWDrive'
     pulse_cw: 'RFQ:LLRF:Con01:pulsecw'
     pulse_time: 'RFQ:LLRF:Con01:pulseontime'
+    freq_start: 'RFQ:LLRF:Con01_DAC:FreqSweepStart_Set'
     sweep: 'RFQ:LLRF:Con01:sweepfrequency'
     tracking: 'RFQ:LLRF:Con01:frequency_tracking'
     power: 'RFQ:LLRF:Con01:rf1power'

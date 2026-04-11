@@ -37,17 +37,20 @@ class RFManager:
         self.max_retries = 3
         self.retry_interval = 5.0
         self.retry_count = 0
+        self.start_frequency = None
 
-    def configure_startup(self, max_retries, retry_interval):
+    def configure_startup(self, max_retries, retry_interval, start_frequency=None):
         """
         配置RF启动重试参数
 
         Args:
             max_retries: 最大重试次数
             retry_interval: 重试间隔（秒）
+            start_frequency: RF启动时写入的起始频率 (MHz)，None则跳过写入
         """
         self.max_retries = max_retries
         self.retry_interval = retry_interval
+        self.start_frequency = start_frequency
 
     def setup_mode(self, pulse_start):
         """
@@ -66,7 +69,6 @@ class RFManager:
             self.is_pulse_mode = True
             self.current_drive_pv = 'rf.pulse_drive'
             logger.debug(f"设置脉冲模式Drive PV: {self.pv_manager.get_pv_name('rf.pulse_drive')}")
-            self.pv_manager.put('rf.cw_drive', 0)
             pulse_time_s = float(pulse_start) / 1000.0
             logger.debug(f"设置初始脉宽: {pulse_time_s}s ({pulse_start}ms)")
             self.pv_manager.put('rf.pulse_time', pulse_time_s)
@@ -75,7 +77,6 @@ class RFManager:
             self.is_pulse_mode = False
             self.current_drive_pv = 'rf.cw_drive'
             logger.debug(f"设置CW模式Drive PV: {self.pv_manager.get_pv_name('rf.cw_drive')}")
-            self.pv_manager.put('rf.pulse_drive', 0)
             logger.info("连续波模式")
         return True
 
@@ -92,30 +93,53 @@ class RFManager:
         for attempt in range(self.max_retries):
             logger.info(f"RF启动尝试 {attempt + 1}/{self.max_retries}")
 
-            logger.debug("启动RF步骤1: 打开RF")
+            if self.start_frequency is not None:
+                logger.debug(f"启动RF步骤0: 写入起始频率 {self.start_frequency} MHz -> {self.pv_manager.get_pv_name('rf.freq_start')}")
+                self.pv_manager.put('rf.freq_start', float(self.start_frequency))
+
+            logger.debug("启动RF步骤1: 清零 pulse_drive 和 cw_drive，确保 RF 打开前 Drive 为 0")
+            self.pv_manager.put('rf.pulse_drive', 0)
+            self.pv_manager.put('rf.cw_drive', 0)
+            self._sleep(0.5)
+
+            logger.debug("启动RF步骤2: 打开RF")
             self.pv_manager.put('rf.rf_on', 1)
             self._sleep(1.0)
 
-            logger.debug(f"启动RF步骤2: 设置初始Drive={init_drive} -> {self.pv_manager.get_pv_name(self.current_drive_pv)}")
+            # 在写入初始 Drive 之前先验证 RF 已打开
+            rf_on = self.pv_manager.get('rf.rf_on')
+            logger.debug(f"启动RF步骤3: 验证RF状态 rf_on={rf_on}")
+            if rf_on != 1:
+                logger.warning(f"RF启动失败（第{attempt + 1}次尝试）：RF on状态不为1，疑似ARC故障")
+                self.retry_count = attempt + 1
+                if attempt < self.max_retries - 1:
+                    logger.info(f"正在重置Interlock故障，等待{self.retry_interval}秒后重试...")
+                    self.fault_handler.reset_all_faults()
+                    self._sleep(self.retry_interval)
+                else:
+                    logger.error(f"RF启动失败：已达到最大重试次数({self.max_retries})")
+                continue
+
+            logger.debug(f"启动RF步骤4: 设置初始Drive={init_drive} -> {self.pv_manager.get_pv_name(self.current_drive_pv)}")
             self.pv_manager.put(self.current_drive_pv, init_drive)
             self._sleep(1.0)
 
-            logger.debug("启动RF步骤3: 打开Sweep和Tracking")
+            logger.debug("启动RF步骤5: 打开Sweep和Tracking")
             self.pv_manager.put('rf.sweep', 1)
             self.pv_manager.put('rf.tracking', 1)
             self._sleep(0.5)
 
-            # 验证RF是否真的打开了
+            # 再次确认RF仍然打开（防止写 Drive 后被硬件保护关闭）
             rf_on = self.pv_manager.get('rf.rf_on')
-            logger.debug(f"启动RF步骤4: 验证RF状态 rf_on={rf_on}")
+            logger.debug(f"启动RF步骤6: 复核RF状态 rf_on={rf_on}")
 
             if rf_on == 1:
                 logger.info(f"RF启动成功（第{attempt + 1}次尝试）")
                 self.retry_count = 0
                 return True
 
-            # RF启动失败
-            logger.warning(f"RF启动失败（第{attempt + 1}次尝试）：RF on状态不为1，疑似ARC故障")
+            # 写入 Drive 后 RF 被关闭
+            logger.warning(f"RF启动失败（第{attempt + 1}次尝试）：写入Drive后RF on状态不为1，疑似ARC故障")
             self.retry_count = attempt + 1
 
             if attempt < self.max_retries - 1:

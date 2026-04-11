@@ -49,11 +49,7 @@ class RFQController:
 
         # RF管理器
         self.rf_manager = RFManager(self.pv_manager, self.fault_handler, sleep_func=self._sleep)
-        rf_startup_cfg = self.config.get('loop', 'rf_startup', default={})
-        self.rf_manager.configure_startup(
-            max_retries=int(rf_startup_cfg.get('max_retry', 3)),
-            retry_interval=float(rf_startup_cfg.get('retry_interval', 5.0)),
-        )
+        self._apply_runtime_config()
 
         # 参数管理
         self.params = ConditioningParams()
@@ -71,14 +67,18 @@ class RFQController:
         self._wait_before_power = False
         self._need_reset_pulse = False
         self._is_auto_recovery = False
+        self._waiting_for_switch = False
+        self._switch_wait_start = 0
 
         # 状态集合常量
         self.active_states = frozenset({
+            RFQState.STABLE_BUILDING,
             RFQState.ADJUSTING_POWER,
             RFQState.WAITING_VACUUM,
             RFQState.EXPANDING_PULSE,
         })
         self.states_need_rf = frozenset({
+            RFQState.STABLE_BUILDING,
             RFQState.ADJUSTING_POWER,
             RFQState.EXPANDING_PULSE,
         })
@@ -93,6 +93,7 @@ class RFQController:
             RFQState.IDLE: self._handle_idle,
             RFQState.INITIALIZING: self._handle_initializing,
             RFQState.PAUSED: self._handle_paused,
+            RFQState.STABLE_BUILDING: self._handle_stable_building,
             RFQState.ADJUSTING_POWER: self._handle_adjusting_power,
             RFQState.WAITING_VACUUM: self._handle_waiting_vacuum,
             RFQState.EXPANDING_PULSE: self._handle_expanding_pulse,
@@ -155,6 +156,25 @@ class RFQController:
         """统一休眠方法，便于测试注入"""
         time.sleep(seconds)
 
+    def _apply_runtime_config(self):
+        """
+        将 config 中所有需要缓存的运行时参数重新应用到各子模块（支持热加载）
+
+        说明：vacuum / power / pulse 等模块在方法调用时直接读取 self.config，
+        无需在此刷新；只有缓存型字段（FaultHandler 滑动窗口、RFManager 启动参数）
+        需要显式重新应用。
+        """
+        # RF 启动参数
+        rf_startup_cfg = self.config.get('loop', 'rf_startup', default={})
+        start_freq_cfg = rf_startup_cfg.get('start_frequency')
+        self.rf_manager.configure_startup(
+            max_retries=int(rf_startup_cfg.get('max_retry', 3)),
+            retry_interval=float(rf_startup_cfg.get('retry_interval', 5.0)),
+            start_frequency=float(start_freq_cfg) if start_freq_cfg is not None else None,
+        )
+        # 故障滑动窗口参数
+        self.fault_handler.reload_config()
+
     def _sleep_loop(self):
         """按配置循环间隔休眠"""
         self._sleep(float(self.config.loop.get('interval', 1)))
@@ -199,9 +219,20 @@ class RFQController:
 
         fault_count = self.fault_handler.get_fault_count()
         last_fault = self.fault_handler.get_last_fault_type()
+
+        # 主动读各故障 PV，定位触发原因（0=故障，1=正常）
+        fault_pv_status = {
+            name: self._get_pv(key)
+            for key, name in zip(
+                self.fault_handler.FAULT_PV_KEYS,
+                self.fault_handler.FAULT_NAMES,
+            )
+        }
+        tripped = [name for name, val in fault_pv_status.items() if val == 0]
+        fault_detail = f"触发故障: {tripped}" if tripped else "所有故障PV当前正常（瞬时触发或原因不明）"
+
         logger.warning(
-            f"检测到RF已关闭 rf_on={rf_on}, "
-            f"当前故障计数={fault_count}, 最近故障类型={last_fault}"
+            f"检测到RF已关闭 | callback记录: 计数={fault_count}, 类型={last_fault} | {fault_detail}"
         )
         if self.fault_handler.is_fault_exceeded():
             logger.error("故障次数超限，进入ERROR状态")
@@ -417,6 +448,7 @@ class RFQController:
 
             logger.debug("步骤1/3: 加载参数")
             self.config.reload_if_changed()
+            self._apply_runtime_config()
             if not self.param_loader.load(self.params, is_auto_recovery=self._is_auto_recovery):
                 self.error_message = "参数加载失败"
                 self.set_state(RFQState.ERROR)
@@ -434,9 +466,9 @@ class RFQController:
                 self.set_state(RFQState.ERROR)
                 return
 
-            logger.info("初始化完成，进入功率调节状态")
+            logger.info("初始化完成，进入稳定建场状态")
             self._is_auto_recovery = False
-            self.set_state(RFQState.ADJUSTING_POWER)
+            self.set_state(RFQState.STABLE_BUILDING)
 
         except Exception as e:
             # 区分 EPICS 通信异常和逻辑异常
@@ -447,6 +479,28 @@ class RFQController:
                 logger.error(f"初始化逻辑异常: {e}", exc_info=True)
             self.error_message = f"初始化异常: {e}"
             self.set_state(RFQState.ERROR)
+
+    def _handle_stable_building(self):
+        """处理STABLE_BUILDING状态 - 频率初始化与Drive爬升
+
+        逻辑（待实现，详见 docs/STABLE_BUILDING_LOGIC.md）：
+          1. 通用条件检查
+          2. 若 rf.power >= stable_power，直接跳过建场 → ADJUSTING_POWER
+          3. 建场循环：|detuning| <= stable_margin 时 drive += stable_step
+          4. 功率达到 stable_power → ADJUSTING_POWER
+          5. 超过 timeout_seconds → ERROR
+        """
+        logger.debug("=== STABLE_BUILDING状态处理 ===")
+
+        new_state = self._check_common_conditions()
+        if new_state:
+            logger.debug(f"STABLE_BUILDING通用条件触发状态转换: {new_state}")
+            self.set_state(new_state)
+            return
+
+        # TODO: 接入稳定建场控制器
+        logger.info("STABLE_BUILDING: 建场控制器未接入，直接进入调节功率状态")
+        self.set_state(RFQState.ADJUSTING_POWER)
 
     def _handle_adjusting_power(self):
         """处理ADJUSTING_POWER状态 - 调节功率"""
@@ -584,20 +638,50 @@ class RFQController:
             self.params.pulse_start = new_pulse
             self._put_pv('control.current_pulse', self.params.pulse_start)
 
+        # 展脉宽后检查功率
+        current_power = self._get_pv('rf.power')
+        margin_small = self._get_pv('control.margin_small')
+        if (current_power is not None and margin_small is not None
+                and abs(current_power - self.params.target_power) > margin_small):
+            logger.warning(
+                f"展脉宽后功率偏离: 当前{current_power:.1f}kW, "
+                f"目标{self.params.target_power:.1f}kW, 偏差>{margin_small:.1f}kW，重新调节功率"
+            )
+            self.power_controller.reset_iteration_count()
+            self.set_state(RFQState.ADJUSTING_POWER)
+            return
+
         if pulse_ok:
             if self.params.power_targets and self.params.target_index < len(self.params.power_targets) - 1:
+                if not self._waiting_for_switch:
+                    self._waiting_for_switch = True
+                    self._switch_wait_start = time.time()
+                    switch_wait_start_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self._switch_wait_start))
+                    logger.info(f"脉宽已达目标，{switch_wait_start_time} 开始等待 {self.params.wait_before_expand:.1f} 秒后再切换下一功率目标")
+                    self._sleep_loop()
+                    return
+
+                elapsed = time.time() - self._switch_wait_start
+                if elapsed < self.params.wait_before_expand:
+                    remaining = self.params.wait_before_expand - elapsed
+                    logger.debug(f"切换前等待中: {remaining:.1f}s remaining...")
+                    self._sleep_loop()
+                    return
+
+                self._waiting_for_switch = False
+                switch_complete_time = time.strftime('%Y-%m-%d %H:%M:%S')
                 self.params.target_index += 1
                 next_target = self.params.power_targets[self.params.target_index]
                 self._put_pv('control.current_target_power', next_target)
                 logger.info(
-                    f"切换到第{self.params.target_index + 1}/{len(self.params.power_targets)}个功率目标: "
+                    f"{switch_complete_time} 等待完成，切换到第{self.params.target_index + 1}/{len(self.params.power_targets)}个功率目标: "
                     f"{next_target} kW"
                 )
                 self.params.target_power = next_target
                 self.power_controller.reset_iteration_count()
 
                 self._need_reset_pulse = True
-                logger.info(f"脉宽已达目标，将等待 {self.params.wait_before_expand:.1f} 秒后恢复初始脉宽，准备下一功率目标展脉宽")
+                logger.info(f"准备开始下一功率目标展脉宽，将等待 {self.params.wait_before_expand:.1f} 秒后恢复初始脉宽")
 
                 self._wait_before_power = True
                 self.set_state(RFQState.ADJUSTING_POWER)
@@ -622,6 +706,7 @@ class RFQController:
             logger.info("检测到恢复信号，重新加载控制参数...")
             saved_pulse_start = self.params.pulse_start
             self.config.reload_if_changed()
+            self._apply_runtime_config()
             if not self.param_loader.load(self.params):
                 logger.error("参数重新加载失败")
                 self.error_message = "参数重新加载失败"

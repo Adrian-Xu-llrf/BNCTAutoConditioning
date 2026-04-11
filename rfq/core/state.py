@@ -29,7 +29,7 @@ class RFQState(Enum):
     IDLE = 0               # 空闲等待启动信号
     INITIALIZING = 10      # 初始化RF系统
     PAUSED = 15            # 已暂停
-    STABLE_BUILDING = 18   # 稳定建场
+    STABLE_BUILDING = 18   # 稳定建场（频率初始化 + Drive 爬升）
     ADJUSTING_POWER = 20   # 调节功率
     WAITING_VACUUM = 25    # 等待真空恢复
     EXPANDING_PULSE = 30   # 展宽脉冲

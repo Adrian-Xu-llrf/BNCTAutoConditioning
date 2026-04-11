@@ -30,28 +30,34 @@
 
 ## 4. 状态流程
 
-1. `INITIALIZING` 阶段完成以下动作：
-   - 设置 `init_drive`
-   - 打开 `sweep=1`
-   - 打开 `tracking=1`
-2. 等待  `wait_after_tracking_seconds`
-3. 读取 `rf.power` 与 `stable_power`
-4. 分支：
-   - 若 `rf.power >= stable_power`：跳过建场，直接进入 `ADJUSTING_POWER`
-   - 若 `rf.power < stable_power`：进入 `STABLE_BUILDING`
-5. `STABLE_BUILDING` 循环：
+### INITIALIZING 阶段（`rf_manager.startup()`）
+
+按以下顺序执行，频率初始化在 `init_drive` 写入之前：
+
+1. 写入起始频率 `rf.freq_start`（由 `config.yaml` 的 `loop.rf_startup.start_frequency` 配置，未配置则跳过）
+2. `pulse_drive` / `cw_drive` 清零
+3. 打开 RF（`rf_on=1`），验证 RF 状态
+4. 写入 `init_drive`
+5. 打开 `sweep=1` 和 `tracking=1`
+
+完成后转入 `STABLE_BUILDING`。
+
+### STABLE_BUILDING 阶段
+
+1. 通用条件检查（暂停、真空、RF、故障计数）
+2. 等待 `wait_after_tracking_seconds`（tracking 打开后的稳定等待）
+3. 读取 `rf.power`，若已 `>= stable_power`：跳过建场，直接进入 `ADJUSTING_POWER`
+4. 建场循环：
    - 读取 `rf.detuning`、`control.stable_margin`、`control.stable_step`
    - 若 `|detuning| <= stable_margin`，则 `drive += stable_step`
-   - 再次读取 `rf.power`
-   - 若 `rf.power >= stable_power`，建场完成，进入 `ADJUSTING_POWER`
+   - 读取 `rf.power`，若 `>= stable_power`：建场完成，进入 `ADJUSTING_POWER`
    - 否则继续循环
-6. 超时判断：
-   - 若 `STABLE_BUILDING` 持续时间超过 `timeout_seconds`，进入 `ERROR`
+5. 超时：若持续时间超过 `timeout_seconds`，进入 `ERROR`
 
 ---
 
-1. 通用条件复用：
+## 5. 通用条件复用
 
-- 暂停、RF 掉线、真空联锁、故障计数等，沿用现有通用检查链路。
+暂停、RF 掉线、真空联锁、故障计数等，沿用现有通用检查链路（`_check_common_conditions()`）。
 
 ---
