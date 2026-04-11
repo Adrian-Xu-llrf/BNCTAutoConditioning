@@ -22,7 +22,7 @@ loop:
   persist_start_pulse: false  # 展脉宽后是否将起始脉宽持久化到PV
   max_drive: 1000           # Drive值上限，超过此值且功率仍为0则报错停止
   ## stable_building
-  stable_timeout_seconds: 60.0    # 稳定建场超时时间 (秒)
+  stable_timeout_seconds: 180.0    # 稳定建场超时时间 (秒)
   stable_detuning_cycles: 3       # detuning连续稳定若干个主循环周期后才允许步进Drive
 
   # 展脉宽模式配置
@@ -50,13 +50,13 @@ pv:
     cw_drive: 'RFQ:LLRF:Con01:AmpCWDrive'
     pulse_cw: 'RFQ:LLRF:Con01:pulsecw'
     pulse_time: 'RFQ:LLRF:Con01:pulseontime'
-    freq_start: 'RFQ:LLRF:Con01_DAC:FreqSweepStart_Set'
+    freq_start: 'RFQ:LLRF:Con01:sweepstartfreq'
     sweep: 'RFQ:LLRF:Con01:sweepfrequency'
     tracking: 'RFQ:LLRF:Con01:frequency_tracking'
     power: 'RFQ:LLRF:Con01:rf1power'
     Amp_Limiter: 'RFQ:LLRF:Con01:amplimiter'
     ## stable_building
-    detuning_error: 'RFQ:LLRF:Con01:DetuningError_Rd' # 失谐PV
+    detuning_error: 'RFQ:LLRF:Con01:Detuning_Err2' # 失谐PV
 
 
 

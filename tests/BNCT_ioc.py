@@ -33,9 +33,9 @@ class RFQAutoCIOC(PVGroup):
         doc='当前状态文本',
     )
     autoc_power_targets = pvproperty(
-        value=[10.0, 20.0, 30.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        value=[80.0, 90.0, 100.0, 0.0],
         dtype=float,
-        max_length=10,
+        max_length=4,
         name='RFQ:LLRF:Con01:AutoC_PowerTargets',
         doc='目标功率列表（waveform，kW），零值为无效元素',
     )
@@ -45,37 +45,37 @@ class RFQAutoCIOC(PVGroup):
         doc='当前正在老练的目标功率（kW）[程序写入]',
     )
     autoc_init_drive = pvproperty(
-        value=100.0, dtype=float,
+        value=600.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_InitDrive',
         doc='初始 Drive',
     )
     autoc_pulse_start = pvproperty(
-        value=0.01, dtype=float,
+        value=0.1, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_PulseStart',
         doc='脉冲起始宽度（ms）',
     )
     autoc_pulse_end = pvproperty(
-        value=110.0, dtype=float,
+        value=100.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_PulseEnd',
         doc='脉冲目标宽度（ms）',
     )
     autoc_current_pulse = pvproperty(
-        value=100.0, dtype=float,
+        value=0.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_CurrentPulse',
         doc='当前脉冲宽度（ms）',
     )
     autoc_pulse_step = pvproperty(
-        value=10.0, dtype=float,
+        value=0.5, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_PulseStep',
         doc='展宽步长（ms）',
     )
     autoc_drive_step1 = pvproperty(
-        value=10.0, dtype=float,
+        value=20.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_DriveStep1',
         doc='功率调节大步长',
     )
     autoc_drive_step2 = pvproperty(
-        value=2.0, dtype=float,
+        value=5.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_DriveStep2',
         doc='功率调节小步长',
     )
@@ -90,12 +90,12 @@ class RFQAutoCIOC(PVGroup):
         doc='小裕度阈值（kW）',
     )
     autoc_pulse_wait = pvproperty(
-        value=2.0, dtype=float,
+        value=20.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_PulseWaitTime',
         doc='展宽等待时间（ms）',
     )
     autoc_power_wait = pvproperty(
-        value=2.0, dtype=float,
+        value=20.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_PowerWaitTime',
         doc='功率等待时间（ms）',
     )
@@ -116,7 +116,7 @@ class RFQAutoCIOC(PVGroup):
         doc='稳定建场容差',
     )
     autoc_stable_power = pvproperty(
-        value=0.0, dtype=float,
+        value=5.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_stable_power',
         doc='稳定建场功率',
     )
