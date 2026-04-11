@@ -34,6 +34,9 @@ loop:
     max_retry: 5         # RF启动最大重试次数
     retry_interval: 2    # 重试间隔 (秒)
     fault_reset_timeout: 5  # 故障重置超时 (秒)
+    start_frequency: 162.614  # RF启动时写入的起始频率 (MHz)
+
+
 
 # ==================== PV名称定义 ====================
 pv:
@@ -94,6 +97,7 @@ pv:
     pulse_drop: 'RFQ:LLRF:Con01:AutoC_PulseDrop'
     current_target_power: 'RFQ:LLRF:Con01:AutoC_CurrentTargetPower'
     current_pulse: 'RFQ:LLRF:Con01:AutoC_CurrentPulse'
+    stable_step: 'RFQ:LLRF:Con01:AutoC_stable_step' # 稳定建场步长
 
 # ==================== 日志配置 ====================
 # 日志文件存放在 logs/ 目录下，每天午夜自动轮转，保留30天
