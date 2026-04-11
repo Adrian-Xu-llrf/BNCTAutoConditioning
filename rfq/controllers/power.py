@@ -33,6 +33,32 @@ class PowerController:
         self.iteration_count = 0
         self.fatal_error = None
 
+    def step_drive(self, pv_key, step):
+        """
+        单步增加 Drive，带 AmpLimiter 上限保护
+
+        供 STABLE_BUILDING 和 ADJUSTING_POWER 共用，避免重复实现边界检查。
+
+        Args:
+            pv_key: Drive PV 逻辑键
+            step: 增量（正值）
+
+        Returns:
+            float or None: 写入后的新 Drive 值，读取失败返回 None
+        """
+        current = self.pv_manager.get(pv_key)
+        if current is None:
+            logger.error(f"step_drive: 无法读取 Drive PV: {pv_key}")
+            return None
+
+        amp_limiter = self.pv_manager.get(PVKeys.AMP_LIMITER)
+        max_drive = float(amp_limiter) if amp_limiter is not None else self.config.loop.get('max_drive', 400)
+
+        new_drive = min(float(current) + float(step), max_drive)
+        self.pv_manager.put(pv_key, new_drive)
+        logger.debug(f"step_drive: {pv_key} {current:.3f} → {new_drive:.3f} (上限={max_drive:.1f})")
+        return new_drive
+
     def adjust(self, current_drive_key, target_power):
         """
         调节功率
@@ -95,23 +121,18 @@ class PowerController:
         logger.debug(f"选择调节步长: type={adj_type}, step={step}")
 
         if error < 0:
-            new_drive = current_drive + step
+            if current_drive >= max_drive:
+                msg = f"Drive已达AmpLimiter上限({max_drive:.1f})，无法继续增加，功率={current_power:.1f}kW (目标={target_power:.1f}kW)"
+                logger.warning(msg)
+                self._sleep(2)
+                return False, msg
+            new_drive = self.step_drive(current_drive_key, step)
             action = "增加"
-            if new_drive > max_drive:
-                if current_drive >= max_drive:
-                    msg = f"Drive已达AmpLimiter上限({max_drive:.1f})，无法继续增加，功率={current_power:.1f}kW (目标={target_power:.1f}kW)"
-                    logger.warning(msg)
-                    self._sleep(2)
-                    return False, msg
-                new_drive = max_drive
-                logger.warning(f"Drive已达AmpLimiter上限({max_drive:.1f})，限制调节")
         else:
-            new_drive = current_drive - step
+            new_drive = max(current_drive - step, 0)
+            self.pv_manager.put(current_drive_key, new_drive)
             action = "减少"
 
-        logger.debug(f"Drive调节: {action} {current_drive:.3f} -> {new_drive:.3f}")
-
-        self.pv_manager.put(current_drive_key, new_drive)
         self.iteration_count += 1
         logger.debug(f"迭代次数: {self.iteration_count}")
 

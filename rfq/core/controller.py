@@ -481,14 +481,22 @@ class RFQController:
             self.set_state(RFQState.ERROR)
 
     def _handle_stable_building(self):
-        """处理STABLE_BUILDING状态 - 频率初始化与Drive爬升
+        """处理STABLE_BUILDING状态 - detuning门控Drive爬升至稳定功率
 
-        逻辑（待实现，详见 docs/STABLE_BUILDING_LOGIC.md）：
-          1. 通用条件检查
-          2. 若 rf.power >= stable_power，直接跳过建场 → ADJUSTING_POWER
-          3. 建场循环：|detuning| <= stable_margin 时 drive += stable_step
-          4. 功率达到 stable_power → ADJUSTING_POWER
-          5. 超过 timeout_seconds → ERROR
+        详见 docs/STABLE_BUILDING_LOGIC.md。
+        Drive 单步增量通过 power_controller.step_drive() 实现，与 ADJUSTING_POWER 共享边界保护逻辑。
+
+        TODO（待实现）：
+          1. 等待 wait_after_tracking_seconds
+          2. 若 rf.power >= stable_power，跳过建场 → ADJUSTING_POWER
+          3. 建场循环：
+             detuning = self._get_pv('rf.detuning')
+             stable_margin = self._get_pv('control.stable_margin')
+             stable_step = self._get_pv('control.stable_step')
+             if abs(detuning) <= stable_margin:
+                 self.power_controller.step_drive(self.rf_manager.current_drive_pv, stable_step)
+             if self._get_pv('rf.power') >= stable_power → ADJUSTING_POWER
+          4. 超时（time.time() - self.state_enter_time > timeout_seconds）→ ERROR
         """
         logger.debug("=== STABLE_BUILDING状态处理 ===")
 

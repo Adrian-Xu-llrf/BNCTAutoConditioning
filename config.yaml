@@ -21,6 +21,8 @@ loop:
   pulse_step: 0.5           # 脉宽步长 (ms)，临时从config读取，后续改回PV
   persist_start_pulse: false  # 展脉宽后是否将起始脉宽持久化到PV
   max_drive: 400           # Drive值上限，超过此值且功率仍为0则报错停止
+  ## stable_building
+  stable_timeout_seconds: 60.0    # 稳定建场超时时间 (秒)
 
   # 展脉宽模式配置
   reduce_power_before_expand: false  # 展脉宽前是否降功率到init_drive
@@ -52,6 +54,9 @@ pv:
     tracking: 'RFQ:LLRF:Con01:frequency_tracking'
     power: 'RFQ:LLRF:Con01:rf1power'
     Amp_Limiter: 'RFQ:LLRF:Con01:amplimiter'
+    detuning_error: 'RFQ:LLRF:Con01:DetuningError_Rd' # 失谐PV
+
+
 
 
 
@@ -62,7 +67,7 @@ pv:
     interlock2: 'RFQ:LLRF:Con01:Interlock_Status'
     di4: 'RFQ:LLRF:Con01:di4'
 
-
+    # 重置PV
     reset_interlock: 'RFQ:LLRF:Con01:ResetInterlock'
     ResetPWFaultStat1: 'RFQ:LLRF:Mon01:ResetPWFaultStat'
     ResetPWFaultStat2: 'RFQ:LLRF:Mon02:ResetPWFaultStat'
@@ -98,7 +103,12 @@ pv:
     pulse_drop: 'RFQ:LLRF:Con01:AutoC_PulseDrop'
     current_target_power: 'RFQ:LLRF:Con01:AutoC_CurrentTargetPower'
     current_pulse: 'RFQ:LLRF:Con01:AutoC_CurrentPulse'
+    ## stable_building
     stable_step: 'RFQ:LLRF:Con01:AutoC_stable_step' # 稳定建场步长
+    stable_margin: 'RFQ:LLRF:Con01:AutoC_stable_margin' # 稳定建场容差
+    stable_power: 'RFQ:LLRF:Con01:AutoC_stable_power' # 稳定建场功率
+    stable_drive: 'RFQ:LLRF:Con01:AutoC_stable_drive' # 稳定建场Drive
+   
 
 # ==================== 日志配置 ====================
 # 日志文件存放在 logs/ 目录下，每天午夜自动轮转，保留30天
