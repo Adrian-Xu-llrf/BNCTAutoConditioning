@@ -14,7 +14,7 @@ loop:
   interval: 0.5          # 主循环间隔 (秒)
   max_faults: 20         # 时间窗口内最大故障次数
   fault_window_minutes: 30  # 故障计数滑动窗口(分钟)
-  max_iterations: 100   # 最大迭代次数
+  max_iterations: 2000   # 最大迭代次数
 
   wait_time_default: 1.0    # wait_time PV读取失败时的默认等待时间 (秒)，每次展脉宽等待时间
   wait_after_expand: 10.0    # 每次展脉宽结束后、开始调功率前的等待时间 (秒)
@@ -35,8 +35,8 @@ loop:
   # RF启动重试配置
   rf_startup:
     max_retry: 5         # RF启动最大重试次数
-    retry_interval: 2    # 重试间隔 (秒)
-    fault_reset_timeout: 5  # 故障重置超时 (秒)
+    retry_interval: 5    # 重试间隔 (秒)
+    fault_reset_timeout: 10  # 故障重置超时 (秒)
     # start_frequency: 162.614  # RF启动时写入的起始频率 (MHz)（暂时禁用）
 
 
