@@ -67,6 +67,16 @@ class RFQSimIOC(PVGroup):
         name='RFQ:LLRF:Con01:WaitTime_Set',
         doc='每次展脉宽等待时间（s）',
     )
+    detuning_error = pvproperty(
+        value=0.0, dtype=float,
+        name='RFQ:LLRF:Con01:DetuningError_Rd',
+        doc='失谐误差（稳定建场用）',
+    )
+    freq_start = pvproperty(
+        value=162.620, dtype=float,
+        name='RFQ:LLRF:Con01_DAC:FreqSweepStart_Set',
+        doc='频率扫描起始频率（MHz）',
+    )
 
     # ==================== 3.2 故障 PV ====================
     arc_status_rd = pvproperty(
@@ -231,7 +241,7 @@ class RFQSimIOC(PVGroup):
         doc='展宽等待时间（ms）',
     )
     autoc_power_wait = pvproperty(
-        value=2.0, dtype=float,
+        value=0.2, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_PowerWaitTime',
         doc='功率等待时间（ms）',
     )
@@ -239,6 +249,21 @@ class RFQSimIOC(PVGroup):
         value=20.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_PulseDrop',
         doc='脉冲下降宽度（ms）',
+    )
+    autoc_stable_step = pvproperty(
+        value=10.0, dtype=float,
+        name='RFQ:LLRF:Con01:AutoC_stable_step',
+        doc='稳定建场步长',
+    )
+    autoc_stable_margin = pvproperty(
+        value=1.0, dtype=float,
+        name='RFQ:LLRF:Con01:AutoC_stable_margin',
+        doc='稳定建场容差',
+    )
+    autoc_stable_power = pvproperty(
+        value=0.0, dtype=float,
+        name='RFQ:LLRF:Con01:AutoC_stable_power',
+        doc='稳定建场功率（kW）[程序写入]',
     )
 
 

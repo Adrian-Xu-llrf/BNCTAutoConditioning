@@ -54,7 +54,7 @@ class PulseController:
 
         if current_ms >= pulse_end:
             msg = f"脉宽已达目标: {current_ms:.2f}ms"
-            logger.info(msg)
+            logger.debug(msg)
             return True, msg
 
         new_ms = current_ms + pulse_step

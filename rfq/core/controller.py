@@ -716,11 +716,10 @@ class RFQController:
         # 每次展脉宽前维持wait_time秒 (非阻塞模式)
         if self._pulse_step_start_time == 0:
             self._pulse_step_start_time = self.state_enter_time
+            wait_start_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self._pulse_step_start_time))
+            logger.info(f"展脉宽前等待开始: {wait_start_time}，共需等待 {self.params.wait_time:.1f} 秒")
         elapsed = time.time() - self._pulse_step_start_time
         if elapsed < self.params.wait_time:
-            if elapsed < 1.0:
-                wait_start_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(self._pulse_step_start_time))
-                logger.info(f"展脉宽前等待开始: {wait_start_time}，共需等待 {self.params.wait_time:.1f} 秒")
 
             is_ok, vacuum_value, vacuum_pv = self.vacuum_checker.is_vacuum_ok()
             if not is_ok:
