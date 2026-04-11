@@ -508,7 +508,7 @@ class RFQSimIOC(PVGroup):
         """设置单个真空计（由 sim_vac_target 指定编号 0-7）"""
         idx = int(self.sim_vac_target.value)
         targets = [self.vac1, self.vac2, self.vac3, self.vac4,
-                   self.vac5, self.vac6, self.vac7, self.vac8]
+                   self.vac5, self.vac6]
         if 0 <= idx < len(targets):
             await targets[idx].write(float(value))
         return float(value)

@@ -331,8 +331,6 @@ class RFQController:
         if state_name not in self.terminal_cleaned:
             if cleanup_func:
                 cleanup_func()
-            self.fault_handler.cleanup()
-            self.vacuum_checker.cleanup()
             self.terminal_cleaned[state_name] = True
 
     def reset(self, clear_faults=True):

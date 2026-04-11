@@ -14,6 +14,7 @@ RFQ自动老练系统 - 主程序入口
 
 import logging
 import os
+import re
 import sys
 from logging.handlers import TimedRotatingFileHandler
 from rfq import get_config, RFQController
@@ -33,27 +34,44 @@ def setup_logging(config):
     Args:
         config: 配置对象
     """
+    # 从配置中读取日志级别和格式，若未指定则使用默认值
     log_cfg = config.logging
     log_level = log_cfg.get('level', 'DEBUG')
     log_format = log_cfg.get('format', '%(asctime)s [%(levelname)s] %(message)s')
 
+    # 在项目根目录下创建 logs 文件夹用于存放日志文件
     log_dir = os.path.join(get_base_dir(), 'logs')
     os.makedirs(log_dir, exist_ok=True)
 
+    # 构造主日志文件路径: logs/rfq_conditioning.log
     base_name = 'rfq_conditioning'
     log_file = os.path.join(log_dir, f'{base_name}.log')
 
     def log_namer(default_name):
+        """
+        自定义日志文件命名器，将轮转后的日志文件重命名为
+        rfq_conditioning_YYYY-MM-DD.log 的格式。
+
+        TimedRotatingFileHandler 默认命名规则为 <basename>.<suffix>，
+        此函数将其改为 <basename>_<suffix>.log，使文件名更直观。
+
+        Args:
+            default_name: Handler 生成的默认轮转文件名
+        """
         filename = os.path.basename(default_name)
+        # 以最后一个 '.' 分割，尝试分离文件名与日期后缀
         parts = filename.rsplit('.', 1)
-        if len(parts) == 2 and parts[1].startswith('2026'):
+        if len(parts) == 2 and re.match(r'\d{4}-\d{2}-\d{2}', parts[1]):
+            # 情况1: 文件名形如 rfq_conditioning.2025-04-11，日期在后缀部分
             date_part = parts[1]
         else:
+            # 情况2: 文件名形如 rfq_conditioning_2025-04-11.log，日期在主名部分
             date_part = parts[0].replace(base_name, '')
             if date_part.startswith('_'):
                 date_part = date_part[1:]
         return os.path.join(log_dir, f'{base_name}_{date_part}.log')
 
+    # 创建按天轮转的文件处理器：每天午夜轮转，最多保留 30 个备份
     file_handler = TimedRotatingFileHandler(
         filename=log_file,
         when='midnight',
@@ -61,10 +79,12 @@ def setup_logging(config):
         backupCount=30,
         encoding='utf-8',
     )
+    # 设置轮转文件的后缀格式和匹配正则，确保只匹配日期格式的文件
     file_handler.suffix = '%Y-%m-%d'
     file_handler.extMatch = r'^\d{4}-\d{2}-\d{2}$'
     file_handler.namer = log_namer
 
+    # 同时输出到文件和控制台
     logging.basicConfig(
         level=log_level,
         format=log_format,
