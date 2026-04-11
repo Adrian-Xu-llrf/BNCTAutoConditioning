@@ -69,6 +69,7 @@ class RFQController:
         self._is_auto_recovery = False
         self._waiting_for_switch = False
         self._switch_wait_start = 0
+        self._stable_detuning_count = 0
 
         # 状态集合常量
         self.active_states = frozenset({
@@ -178,6 +179,10 @@ class RFQController:
     def _sleep_loop(self):
         """按配置循环间隔休眠"""
         self._sleep(float(self.config.loop.get('interval', 1)))
+
+    def _reset_stable_building_state(self):
+        """清理稳定建场阶段的连续判稳状态"""
+        self._stable_detuning_count = 0
 
     # ==================== 条件检查（拆分自 _check_common_conditions） ====================
 
@@ -346,6 +351,7 @@ class RFQController:
         self.error_message = ""
         self.state_before_pause = None
         self.terminal_cleaned.clear()
+        self._reset_stable_building_state()
 
         # 重置计数器
         self.power_controller.reset_iteration_count()
@@ -481,34 +487,137 @@ class RFQController:
             self.set_state(RFQState.ERROR)
 
     def _handle_stable_building(self):
-        """处理STABLE_BUILDING状态 - detuning门控Drive爬升至稳定功率
-
-        详见 docs/STABLE_BUILDING_LOGIC.md。
-        Drive 单步增量通过 power_controller.step_drive() 实现，与 ADJUSTING_POWER 共享边界保护逻辑。
-
-        TODO（待实现）：
-          1. 等待 wait_after_tracking_seconds
-          2. 若 rf.power >= stable_power，跳过建场 → ADJUSTING_POWER
-          3. 建场循环：
-             detuning = self._get_pv('rf.detuning')
-             stable_margin = self._get_pv('control.stable_margin')
-             stable_step = self._get_pv('control.stable_step')
-             if abs(detuning) <= stable_margin:
-                 self.power_controller.step_drive(self.rf_manager.current_drive_pv, stable_step)
-             if self._get_pv('rf.power') >= stable_power → ADJUSTING_POWER
-          4. 超时（time.time() - self.state_enter_time > timeout_seconds）→ ERROR
-        """
+        """处理STABLE_BUILDING状态 - detuning门控Drive爬升至稳定功率"""
         logger.debug("=== STABLE_BUILDING状态处理 ===")
 
         new_state = self._check_common_conditions()
         if new_state:
             logger.debug(f"STABLE_BUILDING通用条件触发状态转换: {new_state}")
+            self._reset_stable_building_state()
             self.set_state(new_state)
             return
 
-        # TODO: 接入稳定建场控制器
-        logger.info("STABLE_BUILDING: 建场控制器未接入，直接进入调节功率状态")
-        self.set_state(RFQState.ADJUSTING_POWER)
+        stable_timeout = float(self.config.get('loop', 'stable_timeout_seconds', default=60.0))
+        stable_cycles = int(self.config.get('loop', 'stable_detuning_cycles', default=3))
+        elapsed_total = time.time() - self.state_enter_time
+        if elapsed_total > stable_timeout:
+            current_power = self._get_pv('rf.power')
+            detuning = self._get_pv('rf.detuning_error')
+            self.error_message = (
+                "稳定建场超时: "
+                f"{elapsed_total:.1f}s > {stable_timeout:.1f}s, "
+                f"power={current_power}, detuning={detuning}"
+            )
+            logger.error(self.error_message)
+            self._reset_stable_building_state()
+            self.set_state(RFQState.ERROR)
+            return
+
+        if self.rf_manager.current_drive_pv is None:
+            self.error_message = "稳定建场失败: 当前Drive PV未配置"
+            logger.error(self.error_message)
+            self._reset_stable_building_state()
+            self.set_state(RFQState.ERROR)
+            return
+
+        current_power = self._get_pv('rf.power')
+        stable_power = self._get_pv('control.stable_power')
+        if current_power is None or stable_power is None:
+            self.error_message = (
+                f"稳定建场参数读取失败: rf.power={current_power}, stable_power={stable_power}"
+            )
+            logger.error(self.error_message)
+            self._reset_stable_building_state()
+            self.set_state(RFQState.ERROR)
+            return
+
+        if current_power >= stable_power:
+            logger.info(
+                f"STABLE_BUILDING: 当前功率 {current_power:.1f}kW 已达到建场目标 "
+                f"{stable_power:.1f}kW，进入调功率状态"
+            )
+            self._reset_stable_building_state()
+            self.set_state(RFQState.ADJUSTING_POWER)
+            return
+
+        detuning = self._get_pv('rf.detuning_error')
+        stable_margin = self._get_pv('control.stable_margin')
+        stable_step = self._get_pv('control.stable_step')
+        if None in (detuning, stable_margin, stable_step):
+            self.error_message = (
+                "稳定建场参数读取失败: "
+                f"detuning={detuning}, stable_margin={stable_margin}, stable_step={stable_step}"
+            )
+            logger.error(self.error_message)
+            self._reset_stable_building_state()
+            self.set_state(RFQState.ERROR)
+            return
+
+        if abs(detuning) <= stable_margin:
+            self._stable_detuning_count += 1
+            logger.debug(
+                f"STABLE_BUILDING detuning稳定计数: {self._stable_detuning_count}/{stable_cycles}, "
+                f"detuning={detuning:.3f}, margin={stable_margin:.3f}"
+            )
+            if self._stable_detuning_count < stable_cycles:
+                self._sleep_loop()
+                return
+
+            old_drive = self._get_pv(self.rf_manager.current_drive_pv)
+            if old_drive is None:
+                self.error_message = f"稳定建场失败: 无法读取Drive PV {self.rf_manager.current_drive_pv}"
+                logger.error(self.error_message)
+                self._reset_stable_building_state()
+                self.set_state(RFQState.ERROR)
+                return
+
+            new_drive = self.power_controller.step_drive(
+                self.rf_manager.current_drive_pv,
+                stable_step,
+            )
+            if new_drive is None:
+                self.error_message = f"稳定建场失败: Drive步进失败 {self.rf_manager.current_drive_pv}"
+                logger.error(self.error_message)
+                self._reset_stable_building_state()
+                self.set_state(RFQState.ERROR)
+                return
+
+            logger.info(
+                "STABLE_BUILDING步进Drive: "
+                f"detuning={detuning:.3f}, margin={stable_margin:.3f}, step={stable_step:.3f}, "
+                f"drive={old_drive:.3f}->{new_drive:.3f}, power={current_power:.1f}kW/"
+                f"{stable_power:.1f}kW"
+            )
+            self._reset_stable_building_state()
+
+            current_power = self._get_pv('rf.power')
+            if current_power is None:
+                self.error_message = "稳定建场失败: 步进后无法读取rf.power"
+                logger.error(self.error_message)
+                self._reset_stable_building_state()
+                self.set_state(RFQState.ERROR)
+                return
+
+            if current_power >= stable_power:
+                logger.info(
+                    f"STABLE_BUILDING完成: 当前功率 {current_power:.1f}kW 达到建场目标 "
+                    f"{stable_power:.1f}kW，进入调功率状态"
+                )
+                self._reset_stable_building_state()
+                self.set_state(RFQState.ADJUSTING_POWER)
+                return
+        else:
+            if self._stable_detuning_count > 0:
+                logger.debug(
+                    f"STABLE_BUILDING detuning脱离窗口，稳定计数清零: "
+                    f"|{detuning:.3f}| > {stable_margin:.3f}"
+                )
+            self._stable_detuning_count = 0
+            logger.debug(
+                f"STABLE_BUILDING detuning未进入允许窗口: |{detuning:.3f}| > {stable_margin:.3f}"
+            )
+
+        self._sleep_loop()
 
     def _handle_adjusting_power(self):
         """处理ADJUSTING_POWER状态 - 调节功率"""

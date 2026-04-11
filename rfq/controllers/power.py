@@ -127,6 +127,10 @@ class PowerController:
                 self._sleep(2)
                 return False, msg
             new_drive = self.step_drive(current_drive_key, step)
+            if new_drive is None:
+                msg = f"无法增加Drive: {current_drive_key} 读取或写入失败"
+                logger.error(msg)
+                return False, msg
             action = "增加"
         else:
             new_drive = max(current_drive - step, 0)

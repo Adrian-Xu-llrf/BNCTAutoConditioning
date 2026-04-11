@@ -46,7 +46,7 @@
 
 ## STABLE_BUILDING（稳定建场）
 
-**当前状态**：尚未实现，handler 映射表中无此条目。
+**当前状态**：已实现，使用 `detuning` 连续稳定判据门控 Drive 步进。
 
 **设计逻辑**（见 `docs/STABLE_BUILDING_LOGIC.md`）：
 
@@ -54,14 +54,16 @@
 1. 检查通用条件
 2. 检查是否已跳过建场（rf.power >= stable_power → 直接转 ADJUSTING_POWER）
 3. 建场循环：
-   - 读取 rf.detuning 和 control.stable_margin
-   - 若 |detuning| <= stable_margin：drive += stable_step
+   - 读取 rf.detuning_error 和 control.stable_margin
+   - 若 |detuning| <= stable_margin：连续稳定计数 +1
+   - 仅当连续稳定计数达到 stable_detuning_cycles 时：drive += stable_step
+   - 若任一周期超出 stable_margin：连续稳定计数清零
    - 读取 rf.power
    - 若 rf.power >= stable_power → 转 ADJUSTING_POWER
 4. 超时（> timeout_seconds）→ ERROR
 ```
 
-**待实现内容**：`_handle_stable_building()` 方法，以及将该状态加入 `active_states`、`states_need_rf`、`state_handlers`。
+连续稳定周期数来自 `config.yaml` 中的 `loop.stable_detuning_cycles`。
 
 ---
 

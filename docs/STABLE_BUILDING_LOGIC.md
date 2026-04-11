@@ -21,10 +21,10 @@
 
 ## 3. 配置项（config.yaml）
 
-建议放在 `loop.stable_field` 下：
+当前代码使用 `loop` 下的扁平键：
 
-- `timeout_seconds`: 稳定建场阶段最大时长（建议默认 60s）
-- `wait_after_tracking_seconds`: 打开扫频跟踪后的等待时间(默认5s)
+- `stable_timeout_seconds`: 稳定建场阶段最大时长（建议默认 60s）
+- `stable_detuning_cycles`: `detuning` 连续稳定的主循环周期数（建议默认 3）
 
 ---
 
@@ -45,14 +45,15 @@
 ### STABLE_BUILDING 阶段
 
 1. 通用条件检查（暂停、真空、RF、故障计数）
-2. 等待 `wait_after_tracking_seconds`（tracking 打开后的稳定等待）
-3. 读取 `rf.power`，若已 `>= stable_power`：跳过建场，直接进入 `ADJUSTING_POWER`
-4. 建场循环：
-   - 读取 `rf.detuning`、`control.stable_margin`、`control.stable_step`
-   - 若 `|detuning| <= stable_margin`，则 `drive += stable_step`
+2. 读取 `rf.power`，若已 `>= stable_power`：跳过建场，直接进入 `ADJUSTING_POWER`
+3. 建场循环：
+   - 读取 `rf.detuning_error`、`control.stable_margin`、`control.stable_step`
+   - 若 `|detuning| <= stable_margin`，稳定计数 `+1`
+   - 若稳定计数达到 `stable_detuning_cycles`，则 `drive += stable_step`
+   - 若任一周期 `|detuning| > stable_margin`，稳定计数清零
    - 读取 `rf.power`，若 `>= stable_power`：建场完成，进入 `ADJUSTING_POWER`
    - 否则继续循环
-5. 超时：若持续时间超过 `timeout_seconds`，进入 `ERROR`
+4. 超时：若持续时间超过 `stable_timeout_seconds`，进入 `ERROR`
 
 ---
 
