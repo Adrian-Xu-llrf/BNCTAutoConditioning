@@ -631,24 +631,16 @@ class RFQController:
 
         # 展脉宽后加功率前的非阻塞等待
         if self._wait_before_power:
-            elapsed = time.time() - self.state_enter_time
-            wait_duration = self.params.wait_before_expand
-            remaining = wait_duration - elapsed
-            if remaining > 0:
-                logger.debug(f"加功率前等待中: {remaining:.1f}s remaining...")
-                self._sleep_loop()
-                return
-            else:
-                adjust_power_start_time = time.strftime('%Y-%m-%d %H:%M:%S')
-                logger.info(f"展脉宽完成，{adjust_power_start_time} 开始调功率")
-                self._wait_before_power = False
-                if self._need_reset_pulse:
-                    self.params.pulse_start = self.params.original_pulse_start
-                    pulse_time_s = float(self.params.pulse_start) / 1000.0
-                    self._put_pv('rf.pulse_time', pulse_time_s)
-                    self._put_pv('control.current_pulse', self.params.pulse_start)
-                    logger.info(f"恢复初始脉宽: {self.params.pulse_start}ms，准备下一功率目标展脉宽")
-                    self._need_reset_pulse = False
+            self._wait_before_power = False
+            adjust_power_start_time = time.strftime('%Y-%m-%d %H:%M:%S')
+            logger.info(f"展脉宽完成，{adjust_power_start_time} 开始调功率")
+            if self._need_reset_pulse:
+                self.params.pulse_start = self.params.original_pulse_start
+                pulse_time_s = float(self.params.pulse_start) / 1000.0
+                self._put_pv('rf.pulse_time', pulse_time_s)
+                self._put_pv('control.current_pulse', self.params.pulse_start)
+                logger.info(f"恢复初始脉宽: {self.params.pulse_start}ms，准备下一功率目标展脉宽")
+                self._need_reset_pulse = False
 
         # 检查真空
         is_ok, vacuum_value, vacuum_pv = self.vacuum_checker.is_vacuum_ok()
