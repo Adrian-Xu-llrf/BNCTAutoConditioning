@@ -633,14 +633,7 @@ class RFQController:
         if self._wait_before_power:
             self._wait_before_power = False
             adjust_power_start_time = time.strftime('%Y-%m-%d %H:%M:%S')
-            logger.info(f"展脉宽完成，{adjust_power_start_time} 开始调功率")
-            if self._need_reset_pulse:
-                self.params.pulse_start = self.params.original_pulse_start
-                pulse_time_s = float(self.params.pulse_start) / 1000.0
-                self._put_pv('rf.pulse_time', pulse_time_s)
-                self._put_pv('control.current_pulse', self.params.pulse_start)
-                logger.info(f"恢复初始脉宽: {self.params.pulse_start}ms，准备下一功率目标展脉宽")
-                self._need_reset_pulse = False
+            logger.info(f"{adjust_power_start_time} 开始调功率")
 
         # 检查真空
         is_ok, vacuum_value, vacuum_pv = self.vacuum_checker.is_vacuum_ok()
@@ -765,18 +758,24 @@ class RFQController:
 
                 self._waiting_for_switch = False
                 switch_complete_time = time.strftime('%Y-%m-%d %H:%M:%S')
+
+                self.params.pulse_start = self.params.original_pulse_start
+                pulse_time_s = float(self.params.pulse_start) / 1000.0
+                self._put_pv('rf.pulse_time', pulse_time_s)
+                self._put_pv('control.current_pulse', self.params.pulse_start)
+                logger.info(f"恢复初始脉宽: {self.params.pulse_start}ms")
+
                 self.params.target_index += 1
                 next_target = self.params.power_targets[self.params.target_index]
                 self._put_pv('control.current_target_power', next_target)
                 logger.info(
-                    f"{switch_complete_time} 等待完成，切换到第{self.params.target_index + 1}/{len(self.params.power_targets)}个功率目标: "
+                    f"{switch_complete_time} 切换到第{self.params.target_index + 1}/{len(self.params.power_targets)}个功率目标: "
                     f"{next_target} kW"
                 )
                 self.params.target_power = next_target
                 self.power_controller.reset_iteration_count()
 
-                self._need_reset_pulse = True
-                logger.info(f"准备开始下一功率目标展脉宽，将等待 {self.params.wait_before_expand:.1f} 秒后恢复初始脉宽")
+                logger.info("准备调节功率")
 
                 self._wait_before_power = True
                 self.set_state(RFQState.ADJUSTING_POWER)

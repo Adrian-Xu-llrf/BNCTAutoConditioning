@@ -19,6 +19,13 @@ from logging.handlers import TimedRotatingFileHandler
 from rfq import get_config, RFQController
 
 
+def get_base_dir():
+    """获取程序根目录（兼容打包后的exe和直接运行）"""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
 def setup_logging(config):
     """
     配置日志系统
@@ -30,7 +37,7 @@ def setup_logging(config):
     log_level = log_cfg.get('level', 'DEBUG')
     log_format = log_cfg.get('format', '%(asctime)s [%(levelname)s] %(message)s')
 
-    log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+    log_dir = os.path.join(get_base_dir(), 'logs')
     os.makedirs(log_dir, exist_ok=True)
 
     base_name = 'rfq_conditioning'
@@ -94,7 +101,8 @@ def main():
     """主函数"""
     try:
         # 加载配置
-        config = get_config('config.yaml')
+        config_path = os.path.join(get_base_dir(), 'config.yaml')
+        config = get_config(config_path)
 
         # 配置日志
         setup_logging(config)
