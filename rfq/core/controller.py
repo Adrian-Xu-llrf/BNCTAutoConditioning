@@ -755,19 +755,6 @@ class RFQController:
             self.params.pulse_start = new_pulse
             self._put_pv('control.current_pulse', self.params.pulse_start)
 
-        # 展脉宽后检查功率
-        current_power = self._get_pv('rf.power')
-        margin_small = self._get_pv('control.margin_small')
-        if (current_power is not None and margin_small is not None
-                and abs(current_power - self.params.target_power) > margin_small):
-            logger.warning(
-                f"展脉宽后功率偏离: 当前{current_power:.1f}kW, "
-                f"目标{self.params.target_power:.1f}kW, 偏差>{margin_small:.1f}kW，重新调节功率"
-            )
-            self.power_controller.reset_iteration_count()
-            self.set_state(RFQState.ADJUSTING_POWER)
-            return
-
         if pulse_ok:
             if self.params.power_targets and self.params.target_index < len(self.params.power_targets) - 1:
                 if not self._waiting_for_switch:
