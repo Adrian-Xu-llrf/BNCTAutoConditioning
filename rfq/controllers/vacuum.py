@@ -80,6 +80,8 @@ class VacuumChecker:
             logger.debug(f"最差真空: {self.worst_vacuum:.2e} Pa @ {self.worst_vacuum_pv}")
 
             threshold = self.config.vacuum['threshold']
+            recovery_ratio = self.config.vacuum.get('recovery_ratio', 0.8)
+            recovery_threshold = threshold * recovery_ratio
             if self.worst_vacuum >= threshold:
                 if self.vacuum_ok:
                     logger.warning(
@@ -88,9 +90,12 @@ class VacuumChecker:
                         f"PV: {self.worst_vacuum_pv}"
                     )
                 self.vacuum_ok = False
-            else:
+            elif self.worst_vacuum < recovery_threshold:
                 if not self.vacuum_ok:
-                    logger.info(f"真空已恢复正常: {self.worst_vacuum:.2e} Pa")
+                    logger.info(
+                        f"真空已恢复正常: {self.worst_vacuum:.2e} Pa "
+                        f"(恢复阈值: {recovery_threshold:.2e} Pa)"
+                    )
                 self.vacuum_ok = True
 
     def is_vacuum_ok(self):

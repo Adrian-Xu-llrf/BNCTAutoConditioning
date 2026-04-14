@@ -38,7 +38,7 @@ class RFQSimIOC(PVGroup):
         doc='模式选择（0=CW，1=脉冲）',
     )
     pulse_time = pvproperty(
-        value=100.0, dtype=float,
+        value=1.0, dtype=float,
         name='RFQ:LLRF:Con01:pulseontime',
         doc='脉冲宽度（s）',
     )
@@ -69,12 +69,12 @@ class RFQSimIOC(PVGroup):
     )
     detuning_error = pvproperty(
         value=0.0, dtype=float,
-        name='RFQ:LLRF:Con01:DetuningError_Rd',
+        name='RFQ:LLRF:Con01:Detuning_Err2',
         doc='失谐误差（稳定建场用）',
     )
     freq_start = pvproperty(
         value=162.620, dtype=float,
-        name='RFQ:LLRF:Con01_DAC:FreqSweepStart_Set',
+        name='RFQ:LLRF:Con01:sweepstartfreq',
         doc='频率扫描起始频率（MHz）',
     )
 
@@ -191,17 +191,17 @@ class RFQSimIOC(PVGroup):
         doc='当前正在老练的目标功率（kW）[程序写入]',
     )
     autoc_init_drive = pvproperty(
-        value=100.0, dtype=float,
+        value=10.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_InitDrive',
         doc='初始 Drive',
     )
     autoc_pulse_start = pvproperty(
-        value=100.0, dtype=float,
+        value=10.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_PulseStart',
         doc='脉冲起始宽度（ms）',
     )
     autoc_pulse_end = pvproperty(
-        value=110.0, dtype=float,
+        value=100.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_PulseEnd',
         doc='脉冲目标宽度（ms）',
     )
@@ -246,7 +246,7 @@ class RFQSimIOC(PVGroup):
         doc='功率等待时间（ms）',
     )
     autoc_pulse_drop = pvproperty(
-        value=20.0, dtype=float,
+        value=10.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_PulseDrop',
         doc='脉冲下降宽度（ms）',
     )
@@ -261,7 +261,7 @@ class RFQSimIOC(PVGroup):
         doc='稳定建场容差',
     )
     autoc_stable_power = pvproperty(
-        value=0.0, dtype=float,
+        value=5.0, dtype=float,
         name='RFQ:LLRF:Con01:AutoC_stable_power',
         doc='稳定建场功率（kW）[程序写入]',
     )
