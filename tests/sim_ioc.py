@@ -78,6 +78,28 @@ class RFQSimIOC(PVGroup):
         doc='频率扫描起始频率（MHz）',
     )
 
+    ### 闭环控制PV
+    amp_setpoint = pvproperty(
+        value=0.0, dtype=float,
+        name='RFQ:LLRF:Con01:ampsetpoint',
+        doc='Drive 幅度设置点',
+    )
+    amp_error = pvproperty(
+        value=0.0, dtype=float,
+        name='RFQ:LLRF:Con01:amperror',
+        doc='Drive 幅度误差',
+    )
+    amp_loop_status = pvproperty(
+        value=0, dtype=int,
+        name='RFQ:LLRF:Con01:amploopstatus',
+        doc='Drive 闭环状态（0=未开启，1=已开启）',
+    )
+    amp_close_loop = pvproperty(
+        value=0, dtype=int,
+        name='RFQ:LLRF:Con01:ampcloseloop',
+        doc='Drive 闭环关闭',
+    )
+
     # ==================== 3.2 故障 PV ====================
     arc_status_rd = pvproperty(
         value=1, dtype=int,

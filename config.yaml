@@ -58,11 +58,12 @@ pv:
     Amp_Limiter: 'RFQ:LLRF:Con01:amplimiter'
     ## stable_building
     detuning_error: 'RFQ:LLRF:Con01:Detuning_Err2' # 失谐PV
-
-
-
-
-
+    ## 闭环控制PV
+    setpoint_set: 'RFQ:LLRF:Con01:ampsetpoint'
+    error_read: 'RFQ:LLRF:Con01:amperror'
+    loop_status_read: 'RFQ:LLRF:Con01:amploopstatus'
+    close_loop: 'RFQ:LLRF:Con01:ampcloseloop'
+  
   # 故障PV
   fault:
     arc: 'RFQ:LLRF:Con01:Arc_Lock'
