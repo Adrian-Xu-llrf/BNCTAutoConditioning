@@ -110,6 +110,7 @@ pv:
     stable_step: 'RFQ:LLRF:Con01:AutoC_stable_step' # 稳定建场步长
     stable_margin: 'RFQ:LLRF:Con01:AutoC_stable_margin' # 稳定建场容差
     stable_power: 'RFQ:LLRF:Con01:AutoC_stable_power' # 稳定建场功率
+    auto_load: 'RFQ:LLRF:Con01:AutoC_AutoLoad' # 自动加载模式（0=关, 1=开）
  
    
 

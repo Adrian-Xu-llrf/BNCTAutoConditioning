@@ -67,6 +67,7 @@ class RFQController:
         self._wait_before_power = False
         self._need_reset_pulse = False
         self._is_auto_recovery = False
+        self._is_auto_load = False
         self._waiting_for_switch = False
         self._switch_wait_start = 0
         self._stable_detuning_count = 0
@@ -77,11 +78,13 @@ class RFQController:
             RFQState.ADJUSTING_POWER,
             RFQState.WAITING_VACUUM,
             RFQState.EXPANDING_PULSE,
+            RFQState.AUTO_MAINTAINING,
         })
         self.states_need_rf = frozenset({
             RFQState.STABLE_BUILDING,
             RFQState.ADJUSTING_POWER,
             RFQState.EXPANDING_PULSE,
+            RFQState.AUTO_MAINTAINING,
         })
         self.terminal_states = frozenset({
             RFQState.COMPLETED,
@@ -98,6 +101,7 @@ class RFQController:
             RFQState.ADJUSTING_POWER: self._handle_adjusting_power,
             RFQState.WAITING_VACUUM: self._handle_waiting_vacuum,
             RFQState.EXPANDING_PULSE: self._handle_expanding_pulse,
+            RFQState.AUTO_MAINTAINING: self._handle_auto_maintaining,
             RFQState.COMPLETED: self._handle_completed,
             RFQState.ERROR: self._handle_error,
             RFQState.STOPPED: self._handle_stopped,
@@ -366,6 +370,7 @@ class RFQController:
 
     def _reset_manual(self):
         """手动复位：回到最初状态（第一个功率目标，初始脉宽）"""
+        self._is_auto_load = False
         p = self.params
         p.target_index = 0
         self._wait_before_power = False
@@ -400,6 +405,12 @@ class RFQController:
 
     def _reset_auto_recovery(self):
         """自动恢复：保持当前功率目标，脉宽下降 pulse_drop"""
+        # 自动加载模式下无脉宽概念，仅保留目标功率
+        if self._is_auto_load:
+            logger.info("自动加载模式Trip恢复: 保持目标功率不变")
+            self._is_auto_recovery = True
+            return
+
         p = self.params
         self._is_auto_recovery = True
         if p.pulse_start is not None and p.original_pulse_start is not None:
@@ -463,6 +474,12 @@ class RFQController:
                 self.error_message = "RF模式配置失败"
                 self.set_state(RFQState.ERROR)
                 return
+
+            # 读取自动加载模式
+            auto_load_val = self._get_pv('control.auto_load')
+            self._is_auto_load = (auto_load_val == 1)
+            if self._is_auto_load:
+                logger.info("自动加载模式: 加载到目标功率后持续监控，Trip自动恢复")
 
             logger.debug("步骤3/3: 启动RF系统")
             if not self.rf_manager.startup(
@@ -661,7 +678,10 @@ class RFQController:
 
         if power_ok:
             logger.info(f"功率已达标，模式: {'脉冲' if self.rf_manager.is_pulse_mode else 'CW'}")
-            if self.rf_manager.is_pulse_mode:
+            if self._is_auto_load:
+                logger.info('自动加载模式: 功率达标，进入监控等待')
+                self.set_state(RFQState.AUTO_MAINTAINING)
+            elif self.rf_manager.is_pulse_mode:
                 logger.info('功率达标，准备展脉宽')
                 self.set_state(RFQState.EXPANDING_PULSE)
             else:
@@ -792,6 +812,15 @@ class RFQController:
             self._put_pv('control.current_pulse', self._get_pv('rf.pulse_time') * 1000)
             self._pulse_step_start_time = time.time()
 
+        self._sleep_loop()
+
+    def _handle_auto_maintaining(self):
+        """处理AUTO_MAINTAINING状态 - 自动加载模式：功率达标后监控等待"""
+        new_state = self._check_common_conditions()
+        if new_state:
+            logger.debug(f"自动加载监控状态转换: {new_state}")
+            self.set_state(new_state)
+            return
         self._sleep_loop()
 
     def _handle_paused(self):

@@ -265,6 +265,11 @@ class RFQSimIOC(PVGroup):
         name='RFQ:LLRF:Con01:AutoC_stable_power',
         doc='稳定建场功率（kW）[程序写入]',
     )
+    autoc_auto_load = pvproperty(
+        value=0, dtype=int,
+        name='RFQ:LLRF:Con01:AutoC_AutoLoad',
+        doc='自动加载模式（0=关, 1=开）',
+    )
 
 
 
