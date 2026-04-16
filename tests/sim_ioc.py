@@ -196,9 +196,9 @@ class RFQSimIOC(PVGroup):
         doc='复位',
     )
     autoc_status = pvproperty(
-        value='IDLE', dtype=str,
+        value=0, dtype=int,
         name='RFQ:LLRF:Con01:AutoC_Status',
-        doc='当前状态文本',
+        doc='当前状态码（RFQState.value）',
     )
     autoc_power_targets = pvproperty(
         value=[10.0, 20.0, 30.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],

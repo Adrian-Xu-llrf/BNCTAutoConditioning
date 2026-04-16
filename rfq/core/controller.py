@@ -101,6 +101,7 @@ class RFQController:
             RFQState.ADJUSTING_POWER: self._handle_adjusting_power,
             RFQState.WAITING_VACUUM: self._handle_waiting_vacuum,
             RFQState.EXPANDING_PULSE: self._handle_expanding_pulse,
+            RFQState.CLOSING_LOOP: self._handle_closing_loop,
             RFQState.AUTO_MAINTAINING: self._handle_auto_maintaining,
             RFQState.COMPLETED: self._handle_completed,
             RFQState.ERROR: self._handle_error,
@@ -133,7 +134,7 @@ class RFQController:
         self.state_enter_time = time.time()
         self._pulse_step_start_time = 0
         logger.info(f"状态转换: {old_state} (#{old_state.get_code()}) -> {new_state} (#{new_state.get_code()})")
-        self.update_status(new_state.name)
+        self.update_status(new_state.get_code())
 
     # ==================== 基础工具方法 ====================
 
@@ -145,11 +146,10 @@ class RFQController:
         self.pv_manager.register_group(pv_cfg.get('control', {}), 'control')
         self.pv_manager.register_list(pv_cfg.get('vacuum', []), 'vacuum')
 
-    def update_status(self, msg):
-        """更新状态到EPICS"""
-        logger.info(msg)
-        safe_msg = self.pv_manager.safe_status(msg)
-        self.pv_manager.put('control.status', safe_msg)
+    def update_status(self, code: int):
+        """更新状态码到EPICS（整数，对应 RFQState.value）"""
+        logger.info(f"状态码: {code}")
+        self.pv_manager.put('control.status', code)
 
     def _get_pv(self, pv_key):
         return self.pv_manager.get(pv_key)
@@ -679,8 +679,8 @@ class RFQController:
         if power_ok:
             logger.info(f"功率已达标，模式: {'脉冲' if self.rf_manager.is_pulse_mode else 'CW'}")
             if self._is_auto_load:
-                logger.info('自动加载模式: 功率达标，进入监控等待')
-                self.set_state(RFQState.AUTO_MAINTAINING)
+                logger.info('自动加载模式: 功率达标，进入闭环调节')
+                self.set_state(RFQState.CLOSING_LOOP)
             elif self.rf_manager.is_pulse_mode:
                 logger.info('功率达标，准备展脉宽')
                 self.set_state(RFQState.EXPANDING_PULSE)
@@ -812,6 +812,63 @@ class RFQController:
             self._put_pv('control.current_pulse', self._get_pv('rf.pulse_time') * 1000)
             self._pulse_step_start_time = time.time()
 
+        self._sleep_loop()
+
+    def _handle_closing_loop(self):
+        """处理CLOSING_LOOP状态 - 自动加载模式：调节ampsetpoint使amperror<10后闭环"""
+        logger.debug("=== CLOSING_LOOP状态处理 ===")
+
+        new_state = self._check_common_conditions()
+        if new_state:
+            logger.debug(f"CLOSING_LOOP通用条件触发状态转换: {new_state}")
+            self.set_state(new_state)
+            return
+
+        closing_timeout = 30.0
+        elapsed = time.time() - self.state_enter_time
+        if elapsed > closing_timeout:
+            amp_error = self._get_pv('rf.error_read')
+            loop_status = self._get_pv('rf.loop_status_read')
+            self.error_message = (
+                f"闭环超时: {elapsed:.1f}s > {closing_timeout:.1f}s, "
+                f"amperror={amp_error}, amploopstatus={loop_status}"
+            )
+            logger.error(self.error_message)
+            self.set_state(RFQState.ERROR)
+            return
+
+        loop_status = self._get_pv('rf.loop_status_read')
+        if loop_status == 1:
+            logger.info("闭环完成: amploopstatus=1，进入自动加载监控")
+            self.set_state(RFQState.AUTO_MAINTAINING)
+            return
+
+        amp_error = self._get_pv('rf.error_read')
+        if amp_error is None:
+            self.error_message = "闭环失败: 无法读取 amperror"
+            logger.error(self.error_message)
+            self.set_state(RFQState.ERROR)
+            return
+
+        if abs(amp_error) >= 10:
+            current_setpoint = self._get_pv('rf.setpoint_set')
+            if current_setpoint is None:
+                self.error_message = "闭环失败: 无法读取 ampsetpoint"
+                logger.error(self.error_message)
+                self.set_state(RFQState.ERROR)
+                return
+
+            new_setpoint = current_setpoint - amp_error
+            self._put_pv('rf.setpoint_set', new_setpoint)
+            logger.info(
+                f"闭环调节: amperror={amp_error:.2f}, "
+                f"ampsetpoint={current_setpoint:.2f}->{new_setpoint:.2f}"
+            )
+            self._sleep_loop()
+            return
+
+        logger.info(f"amperror={amp_error:.2f} < 10，执行闭环")
+        self._put_pv('rf.close_loop', 1)
         self._sleep_loop()
 
     def _handle_auto_maintaining(self):

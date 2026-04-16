@@ -28,9 +28,9 @@ class RFQAutoCIOC(PVGroup):
         doc='复位',
     )
     autoc_status = pvproperty(
-        value='IDLE', dtype=str,
+        value=0, dtype=int,
         name='RFQ:LLRF:Con01:AutoC_Status',
-        doc='当前状态文本',
+        doc='当前状态码（RFQState.value）',
     )
     autoc_power_targets = pvproperty(
         value=[80.0, 90.0, 100.0, 0.0],

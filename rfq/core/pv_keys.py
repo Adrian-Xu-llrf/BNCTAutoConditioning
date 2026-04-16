@@ -21,6 +21,10 @@ class PVKeys:
     SWEEP = 'rf.sweep'
     TRACKING = 'rf.tracking'
     AMP_LIMITER = 'rf.Amp_Limiter'
+    AMP_SETPOINT = 'rf.setpoint_set'
+    AMP_ERROR = 'rf.error_read'
+    AMP_LOOP_STATUS = 'rf.loop_status_read'
+    AMP_CLOSE_LOOP = 'rf.close_loop'
 
     # ==================== 故障 PV ====================
     FAULT_ARC = 'fault.arc'
