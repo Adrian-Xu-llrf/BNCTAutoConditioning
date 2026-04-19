@@ -479,6 +479,11 @@ class RFQController:
             auto_load_val = self._get_pv('control.auto_load')
             self._is_auto_load = (auto_load_val == 1)
             if self._is_auto_load:
+                if self.rf_manager.is_pulse_mode:
+                    self.error_message = "自动加载模式只能在CW模式下使用"
+                    logger.error(self.error_message)
+                    self.set_state(RFQState.ERROR)
+                    return
                 logger.info("自动加载模式: 加载到目标功率后持续监控，Trip自动恢复")
 
             logger.debug("步骤3/3: 启动RF系统")
