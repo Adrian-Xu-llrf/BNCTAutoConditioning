@@ -34,3 +34,6 @@ RFQAutoCon.db
 *.sqlite3
 
 .claude/
+
+# 历史归档目录（勿在此开发）
+AutoConditioning_archive_*/
