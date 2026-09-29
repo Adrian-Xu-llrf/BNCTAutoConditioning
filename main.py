@@ -17,7 +17,7 @@ import os
 import re
 import sys
 from logging.handlers import TimedRotatingFileHandler
-from rfq import get_config, RFQController
+from rfq import get_config, RFQController, __version__
 
 
 def get_base_dir():
@@ -103,9 +103,10 @@ def print_welcome(config):
         config: 配置对象
     """
     print("\n" + "="*60)
-    print("  RFQ自动老练系统 - 模块化版本")
+    print(f"  RFQ自动老练系统 v{__version__} - 模块化版本")
     print("="*60)
     print("\n配置参数:")
+    print(f"  版本号: {__version__}")
     print(f"  目标功率等参数将从EPICS PV读取")
     print(f"  真空阈值: {config.vacuum['threshold']:.2e} Pa")
     print(f"  配置文件: {config.config_file}")
@@ -129,6 +130,10 @@ def main():
 
         # 打印欢迎信息
         print_welcome(config)
+
+        # 在日志中记录版本号，便于现场确认运行的是哪个版本
+        logging.info(f"RFQ自动老练系统 v{__version__} 启动")
+        logging.info(f"配置文件: {config.config_file}")
 
         # 等待用户确认
         input("按Enter键开始运行...")

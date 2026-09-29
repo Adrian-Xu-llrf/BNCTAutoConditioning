@@ -3,6 +3,14 @@
 # 打包命令: pyinstaller RFQAutoCon.spec
 
 from PyInstaller.utils.hooks import collect_all
+import os
+import re
+
+# 从 rfq/__init__.py 读取版本号（不 import，避免拉起 epics 依赖）
+# 版本号改这里：rfq/__init__.py 的 __version__
+with open(os.path.join(SPECPATH, 'rfq', '__init__.py'), encoding='utf-8') as _f:
+    __version__ = re.search(r"__version__\s*=\s*'([^']+)'", _f.read()).group(1)
+print(f"[spec] RFQAutoCon version = {__version__}")
 
 # 收集 pyepics 所有依赖（包含动态库）
 epics_datas, epics_binaries, epics_hiddenimports = collect_all('epics')
@@ -55,7 +63,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='RFQAutoCon',
+    name=f'RFQAutoCon_v{__version__}',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

@@ -34,7 +34,7 @@ from .controllers import (
 # 导入工具
 from .utils import PVManager
 
-__version__ = '3.0.0'
+__version__ = '2.0.0'
 
 __all__ = [
     # 核心
