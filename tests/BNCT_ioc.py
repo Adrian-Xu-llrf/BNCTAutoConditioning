@@ -120,6 +120,21 @@ class RFQAutoCIOC(PVGroup):
         name='RFQ:LLRF:Con01:AutoC_stable_power',
         doc='稳定建场功率',
     )
+    autoc_auto_load = pvproperty(
+        value=0, dtype=int,
+        name='RFQ:LLRF:Con01:AutoC_AutoLoad',
+        doc='自动加载模式（0=关, 1=开）',
+    )
+    autoc_setpoint_step = pvproperty(
+        value=1, dtype=int,
+        name='RFQ:LLRF:Con01:AutoC_SetpointStep',
+        doc='setpoint步进量（整数）',
+    )
+    autoc_setpoint_margin = pvproperty(
+        value=0.5, dtype=float,
+        name='RFQ:LLRF:Con01:AutoC_SetpointMargin',
+        doc='setpoint调节收敛裕度（kW）',
+    )
 
 
 if __name__ == '__main__':

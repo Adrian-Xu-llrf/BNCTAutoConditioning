@@ -34,6 +34,10 @@ class ConditioningParams:
     wait_time: float = 1.0
     wait_before_expand: float = 10.0
 
+    # 闭环setpoint调节参数
+    setpoint_step: int = 1
+    setpoint_margin: float = 1.0
+
     def current_target(self):
         """获取当前功率目标"""
         if self.power_targets and self.target_index < len(self.power_targets):
@@ -155,5 +159,25 @@ class ParameterLoader:
             logger.warning(f"wait_before_expand PV读取失败，使用默认值 {default_wait_expand}s")
             params.wait_before_expand = default_wait_expand
         logger.info(f"wait_before_expand: {params.wait_before_expand} s")
+
+        # 读取 setpoint_step（闭环模式 setpoint 步进量，整数）
+        setpoint_step_val = self._get_pv('control.setpoint_step')
+        default_setpoint_step = int(self.config.loop.get('setpoint_step_default', 1))
+        try:
+            params.setpoint_step = int(setpoint_step_val) if setpoint_step_val is not None else default_setpoint_step
+        except (ValueError, TypeError):
+            logger.warning(f"setpoint_step PV读取失败，使用默认值 {default_setpoint_step}")
+            params.setpoint_step = default_setpoint_step
+        logger.info(f"setpoint_step: {params.setpoint_step}")
+
+        # 读取 setpoint_margin（闭环调节收敛裕度 kW）
+        setpoint_margin_val = self._get_pv('control.setpoint_margin')
+        default_setpoint_margin = float(self.config.get('loop', 'setpoint_margin_default', default=1.0))
+        try:
+            params.setpoint_margin = float(setpoint_margin_val) if setpoint_margin_val is not None else default_setpoint_margin
+        except (ValueError, TypeError):
+            logger.warning(f"setpoint_margin PV读取失败，使用默认值 {default_setpoint_margin}")
+            params.setpoint_margin = default_setpoint_margin
+        logger.info(f"setpoint_margin: {params.setpoint_margin} kW")
 
         return True

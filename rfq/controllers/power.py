@@ -156,3 +156,59 @@ class PowerController:
     def get_iteration_count(self):
         """获取迭代次数"""
         return self.iteration_count
+
+    def adjust_setpoint(self, target_power, step, margin):
+        """
+        调节闭环setpoint以逼近目标功率
+
+        在LLRF闭环状态下，通过步进 rf.setpoint_set 来调节功率。
+
+        Args:
+            target_power: 目标功率 (kW)
+            step: setpoint步进量（整数）
+            margin: 收敛裕度 (kW)
+
+        Returns:
+            tuple: (bool, str) — 是否达标，状态消息
+        """
+        current_power = self.pv_manager.get('rf.power')
+        if current_power is None:
+            return False, "无法读取功率"
+
+        current_setpoint = self.pv_manager.get('rf.setpoint_set')
+        if current_setpoint is None:
+            return False, "无法读取setpoint"
+
+        error = current_power - target_power
+        abs_error = abs(error)
+
+        if abs_error < margin:
+            msg = f"功率达标: {current_power:.1f}kW (目标={target_power:.1f}kW)"
+            logger.info(msg)
+            return True, msg
+
+        amp_limiter = self.pv_manager.get(PVKeys.AMP_LIMITER)
+        max_setpoint = float(amp_limiter) if amp_limiter is not None else self.config.loop.get('max_drive', 1000)
+
+        if error < 0:
+            if current_setpoint >= max_setpoint:
+                msg = (
+                    f"Setpoint已达上限({current_setpoint:.0f}>={max_setpoint:.0f})，"
+                    f"功率={current_power:.1f}kW (目标={target_power:.1f}kW)"
+                )
+                logger.warning(msg)
+                return False, msg
+            new_setpoint = min(current_setpoint + step, max_setpoint)
+        else:
+            new_setpoint = max(current_setpoint - step, 0)
+
+        self.pv_manager.put('rf.setpoint_set', new_setpoint)
+        self.iteration_count += 1
+
+        action = "增加" if error < 0 else "减少"
+        msg = (
+            f"{action}Setpoint: {current_setpoint:.0f}->{new_setpoint:.0f}, "
+            f"功率={current_power:.1f}kW (目标={target_power:.1f}kW)"
+        )
+        logger.info(msg)
+        return False, msg

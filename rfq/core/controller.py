@@ -79,12 +79,14 @@ class RFQController:
             RFQState.WAITING_VACUUM,
             RFQState.EXPANDING_PULSE,
             RFQState.AUTO_MAINTAINING,
+            RFQState.AUTO_REGULATING,
         })
         self.states_need_rf = frozenset({
             RFQState.STABLE_BUILDING,
             RFQState.ADJUSTING_POWER,
             RFQState.EXPANDING_PULSE,
             RFQState.AUTO_MAINTAINING,
+            RFQState.AUTO_REGULATING,
         })
         self.terminal_states = frozenset({
             RFQState.COMPLETED,
@@ -102,6 +104,7 @@ class RFQController:
             RFQState.WAITING_VACUUM: self._handle_waiting_vacuum,
             RFQState.EXPANDING_PULSE: self._handle_expanding_pulse,
             RFQState.CLOSING_LOOP: self._handle_closing_loop,
+            RFQState.AUTO_REGULATING: self._handle_auto_regulating,
             RFQState.AUTO_MAINTAINING: self._handle_auto_maintaining,
             RFQState.COMPLETED: self._handle_completed,
             RFQState.ERROR: self._handle_error,
@@ -844,8 +847,8 @@ class RFQController:
 
         loop_status = self._get_pv('rf.loop_status_read')
         if loop_status == 1:
-            logger.info("闭环完成: amploopstatus=1，进入自动加载监控")
-            self.set_state(RFQState.AUTO_MAINTAINING)
+            logger.info("闭环完成: amploopstatus=1，进入闭环功率调节")
+            self.set_state(RFQState.AUTO_REGULATING)
             return
 
         amp_error = self._get_pv('rf.error_read')
@@ -874,6 +877,43 @@ class RFQController:
 
         logger.info(f"amperror={amp_error:.2f} < 10，执行闭环")
         self._put_pv('rf.close_loop', 1)
+        self._sleep_loop()
+
+    def _handle_auto_regulating(self):
+        """处理AUTO_REGULATING状态 - 闭环后通过setpoint调节功率到目标值"""
+        logger.debug("=== AUTO_REGULATING状态处理 ===")
+
+        new_state = self._check_common_conditions()
+        if new_state:
+            logger.debug(f"AUTO_REGULATING通用条件触发状态转换: {new_state}")
+            self.set_state(new_state)
+            return
+
+        current_power = self._get_pv('rf.power')
+        target_power = self.params.target_power
+
+        if current_power is None:
+            self.error_message = "闭环功率调节: 无法读取功率"
+            logger.error(self.error_message)
+            self.set_state(RFQState.ERROR)
+            return
+
+        margin = self.params.setpoint_margin
+        if abs(current_power - target_power) < margin:
+            logger.info(
+                f"闭环功率调节完成: {current_power:.1f}kW (目标={target_power:.1f}kW, 裕度={margin}kW)，"
+                "进入自动加载监控"
+            )
+            self.set_state(RFQState.AUTO_MAINTAINING)
+            return
+
+        power_ok, power_msg = self.power_controller.adjust_setpoint(
+            self.params.target_power,
+            self.params.setpoint_step,
+            self.params.setpoint_margin,
+        )
+        logger.debug(power_msg)
+
         self._sleep_loop()
 
     def _handle_auto_maintaining(self):

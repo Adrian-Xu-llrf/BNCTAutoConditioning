@@ -22,6 +22,8 @@ loop:
   pulse_step: 0.5           # 脉宽步长 (ms)，临时从config读取，后续改回PV
   persist_start_pulse: false  # 展脉宽后是否将起始脉宽持久化到PV
   max_drive: 1000           # Drive值上限，超过此值且功率仍为0则报错停止
+  setpoint_step_default: 1     # setpoint步进默认值（整数）
+  setpoint_margin_default: 1.0 # setpoint调节收敛裕度默认值(kW)
   ## stable_building
   stable_timeout_seconds: 180.0    # 稳定建场超时时间 (秒)
   stable_detuning_cycles: 3       # detuning连续稳定若干个主循环周期后才允许步进Drive
@@ -112,6 +114,8 @@ pv:
     stable_margin: 'RFQ:LLRF:Con01:AutoC_stable_margin' # 稳定建场容差
     stable_power: 'RFQ:LLRF:Con01:AutoC_stable_power' # 稳定建场功率
     auto_load: 'RFQ:LLRF:Con01:AutoC_AutoLoad' # 自动加载模式（0=关, 1=开）
+    setpoint_step: 'RFQ:LLRF:Con01:AutoC_SetpointStep'      # setpoint步进量（整数）
+    setpoint_margin: 'RFQ:LLRF:Con01:AutoC_SetpointMargin'  # setpoint调节收敛裕度(kW)
  
    
 

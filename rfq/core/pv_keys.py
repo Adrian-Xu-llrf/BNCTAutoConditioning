@@ -56,3 +56,5 @@ class PVKeys:
     CONTROL_WAIT_BEFORE_EXPAND = 'control.wait_before_expand'
     CONTROL_CURRENT_TARGET_POWER = 'control.current_target_power'
     CONTROL_CURRENT_PULSE = 'control.current_pulse'
+    CONTROL_SETPOINT_STEP = 'control.setpoint_step'
+    CONTROL_SETPOINT_MARGIN = 'control.setpoint_margin'
