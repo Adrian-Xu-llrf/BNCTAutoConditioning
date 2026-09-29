@@ -36,4 +36,5 @@ RFQAutoCon.db
 .claude/
 
 # 历史归档目录（勿在此开发）
+/archive/
 AutoConditioning_archive_*/
